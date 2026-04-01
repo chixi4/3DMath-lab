@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Keyframe Editor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #11151c;
+        --panel: #1a2230;
+        --panel-2: #212c3d;
+        --text: #f2f5f8;
+        --muted: #a7b3c2;
+        --border: #314055;
+        --x: #ff9f6e;
+        --y: #7ec8ff;
+        --z: #ffd166;
+        --o: #58e1c1;
+        --accent: #87b7ff;
+        --danger: #ff8370;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(135, 183, 255, 0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(88, 225, 193, 0.12), transparent 25%),
+          linear-gradient(180deg, #0c1016 0%, var(--bg) 100%);
+        color: var(--text);
+        font: 14px/1.45 "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(340px, 400px) 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        padding: 20px;
+        border-right: 1px solid var(--border);
+        background: rgba(17, 21, 28, 0.84);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow: auto;
+      }
+
+      .main {
+        padding: 20px;
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      h2 {
+        margin-top: 18px;
+        font-size: 16px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+      }
+
+      .toolbar,
+      .toggles {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar {
+        margin: 14px 0 10px;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #2d3d55 0%, #223047 100%);
+        color: var(--text);
+        padding: 9px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      button.secondary {
+        background: linear-gradient(180deg, #253041 0%, #1d2635 100%);
+      }
+
+      button:hover {
+        border-color: #486283;
+      }
+
+      .status {
+        min-height: 20px;
+        margin: 10px 0 14px;
+        color: var(--accent);
+        white-space: pre-wrap;
+      }
+
+      .hint {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(33, 44, 61, 0.72);
+        border: 1px solid var(--border);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        background: rgba(26, 34, 48, 0.76);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid rgba(49, 64, 85, 0.9);
+      }
+
+      .card-header strong {
+        font-size: 15px;
+      }
+
+      .card-header span {
+        color: var(--muted);
+      }
+
+      .workspace {
+        background: #080b10;
+      }
+
+      .workspace svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .frame-boundary {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.14);
+        stroke-width: 2px;
+        stroke-dasharray: 10 10;
+      }
+
+      .point-label {
+        font: 700 20px/1 "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+        paint-order: stroke;
+        stroke: rgba(0, 0, 0, 0.76);
+        stroke-width: 4px;
+        pointer-events: none;
+      }
+
+      .handle {
+        cursor: grab;
+      }
+
+      .handle circle.core {
+        stroke: rgba(255, 255, 255, 0.95);
+        stroke-width: 3px;
+      }
+
+      .handle circle.ring {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.28);
+        stroke-width: 2px;
+      }
+
+      .handle.selected circle.ring {
+        stroke: white;
+      }
+
+      .handle.selected circle.core {
+        stroke-width: 4px;
+      }
+
+      .chart {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(26, 34, 48, 0.76);
+        border: 1px solid var(--border);
+      }
+
+      .chart svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .legend {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 8px;
+        color: var(--muted);
+        flex-wrap: wrap;
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+        margin-right: 6px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th,
+      td {
+        padding: 7px 6px;
+        border-bottom: 1px solid rgba(49, 64, 85, 0.65);
+        text-align: right;
+      }
+
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        background: rgba(33, 44, 61, 0.82);
+        border: 1px solid var(--border);
+      }
+
+      .badge input {
+        accent-color: var(--accent);
+      }
+
+      @media (max-width: 1080px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>x / y / z / O 关键帧编辑器</h1>
+        <p>直接拖 6 张预览图上的标签点，保存后会回写 <code>revolve-slice-prototype.py</code> 里的四组 <code>*_LABEL_SCREEN_KNOTS</code>。</p>
+
+        <div class="toolbar">
+          <button id="reload-btn" class="secondary">从原型场景重新载入</button>
+          <button id="save-btn">保存到原型场景</button>
+          <button id="copy-btn" class="secondary">复制 Python 片段</button>
+        </div>
+
+        <div class="toggles">
+          <label class="badge"><input id="toggle-x" type="checkbox" checked /> 显示 x</label>
+          <label class="badge"><input id="toggle-y" type="checkbox" checked /> 显示 y</label>
+          <label class="badge"><input id="toggle-z" type="checkbox" checked /> 显示 z</label>
+          <label class="badge"><input id="toggle-o" type="checkbox" checked /> 显示 O</label>
+        </div>
+
+        <div id="status" class="status">正在读取当前关键帧…</div>
+        <div id="mode-note" class="status" style="margin-top: -8px; color: var(--muted)"></div>
+
+        <div class="hint">
+          <strong>操作</strong>
+          <ul>
+            <li>拖点直接改位置，四个标签都能调。</li>
+            <li>点选后可用方向键微调，<code>Shift + 方向键</code> 是 10px。</li>
+            <li>虚线框是最终 16:9 画面边界，边界外的空白区用来拖拽画外标签。</li>
+          </ul>
+        </div>
+
+        <h2>轨迹预览</h2>
+        <div class="chart">
+          <div class="legend">
+            <span><i class="swatch" style="background: var(--x)"></i>x 路径</span>
+            <span><i class="swatch" style="background: var(--y)"></i>y 路径</span>
+            <span><i class="swatch" style="background: var(--z)"></i>z 路径</span>
+            <span><i class="swatch" style="background: var(--o)"></i>O 路径</span>
+          </div>
+          <svg id="path-chart" viewBox="0 0 320 180" aria-label="Motion path chart"></svg>
+        </div>
+
+        <h2>坐标表</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>帧</th>
+              <th>t</th>
+              <th>x</th>
+              <th>y</th>
+              <th>z</th>
+              <th>O</th>
+            </tr>
+          </thead>
+          <tbody id="coord-table"></tbody>
+        </table>
+      </aside>
+
+      <main class="main">
+        <div id="cards" class="cards"></div>
+      </main>
+    </div>
+
+    <script>
+      const LABEL_ORDER = ["x", "y", "z", "o"];
+      const LABEL_META = {
+        x: { title: "x", color: getComputedStyle(document.documentElement).getPropertyValue("--x").trim() },
+        y: { title: "y", color: getComputedStyle(document.documentElement).getPropertyValue("--y").trim() },
+        z: { title: "z", color: getComputedStyle(document.documentElement).getPropertyValue("--z").trim() },
+        o: { title: "O", color: getComputedStyle(document.documentElement).getPropertyValue("--o").trim() },
+      };
+      const OVERSCAN = 120;
+
+      const state = {
+        data: null,
+        selected: null,
+        drag: null,
+        visible: { x: true, y: true, z: true, o: true },
+      };
+
+      const statusNode = document.getElementById("status");
+      const modeNoteNode = document.getElementById("mode-note");
+      const cardsNode = document.getElementById("cards");
+      const coordTableNode = document.getElementById("coord-table");
+      const chartNode = document.getElementById("path-chart");
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.style.color = isError ? "var(--danger)" : "var(--accent)";
+      }
+
+      function formatUiError(error, actionLabel = "请求") {
+        const text = String(error ?? "");
+        if (text.includes("Load failed") || text.includes("Failed to fetch")) {
+          return `${actionLabel}失败：本地编辑器服务没有连接上。请刷新页面；如果还不行，重新启动 editor-server.py。`;
+        }
+        return text;
+      }
+
+      async function loadData() {
+        setStatus("正在读取当前关键帧…");
+        const response = await fetch("/api/keyframes");
+        if (!response.ok) {
+          throw new Error(`读取失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        state.selected = null;
+        render();
+        setModeNote();
+        setStatus("已载入 revolve-slice-prototype.py。拖点后点“保存到原型场景”即可。");
+      }
+
+      function previewInsetX() {
+        return (state.data.previewWidth - state.data.contentWidth) / 2;
+      }
+
+      function previewInsetY() {
+        return (state.data.previewHeight - state.data.contentHeight) / 2;
+      }
+
+      function sceneToPreviewPixel(point) {
+        const x = previewInsetX() + ((point[0] / state.data.frameWidth) + 0.5) * state.data.contentWidth;
+        const y = previewInsetY() + (0.5 - (point[1] / state.data.frameHeight)) * state.data.contentHeight;
+        return [x, y];
+      }
+
+      function previewPixelToScene(x, y) {
+        return [
+          (((x - previewInsetX()) / state.data.contentWidth) - 0.5) * state.data.frameWidth,
+          (0.5 - ((y - previewInsetY()) / state.data.contentHeight)) * state.data.frameHeight,
+        ];
+      }
+
+      function sceneToCanvasPixel(point) {
+        const [x, y] = sceneToPreviewPixel(point);
+        return [x + OVERSCAN, y + OVERSCAN];
+      }
+
+      function canvasToScene(x, y) {
+        return previewPixelToScene(x - OVERSCAN, y - OVERSCAN);
+      }
+
+      function clamp(value, low, high) {
+        return Math.max(low, Math.min(high, value));
+      }
+
+      function fmt(value) {
+        const rounded = Math.round(value * 100) / 100;
+        return `${rounded.toFixed(2)}`;
+      }
+
+      function fmtPoint(point) {
+        return `(${fmt(point[0])}, ${fmt(point[1])})`;
+      }
+
+      function pointsMatch(left, right, epsilon = 0.001) {
+        return Math.abs(left[0] - right[0]) <= epsilon && Math.abs(left[1] - right[1]) <= epsilon;
+      }
+
+      function isSharedLayout() {
+        if (!state.data) return false;
+        return LABEL_ORDER.every((label) => {
+          const points = state.data.labels[label];
+          return points.every((point) => pointsMatch(point, points[0]));
+        });
+      }
+
+      function setModeNote() {
+        if (!state.data) {
+          modeNoteNode.textContent = "";
+          return;
+        }
+        modeNoteNode.textContent = isSharedLayout()
+          ? "当前是统一布局模式：拖任意一张图上的标签点，6 张预览会同步更新。"
+          : "当前是逐帧布局模式：每张预览都可以单独设置标签位置。";
+      }
+
+      function buildPythonSnippet() {
+        return LABEL_ORDER.map((label) => {
+          const constantName = `${label === "o" ? "O" : label.toUpperCase()}_LABEL_SCREEN_KNOTS`;
+          const lines = state.data.labels[label].map(
+            ([x, y]) => `    np.array([${fmt(x)}, ${fmt(y)}], dtype=float),`,
+          );
+          return [`${constantName} = (`, ...lines, ")"].join("\n");
+        }).join("\n\n");
+      }
+
+      async function copySnippet() {
+        await navigator.clipboard.writeText(buildPythonSnippet());
+        setStatus("已复制 Python 片段。");
+      }
+
+      function hermite(points, times, t) {
+        if (t <= times[0]) return points[0];
+        if (t >= times[times.length - 1]) return points[points.length - 1];
+
+        const tangents = points.map((point, index) => {
+          if (index === 0) {
+            return [
+              (points[1][0] - point[0]) / (times[1] - times[0]),
+              (points[1][1] - point[1]) / (times[1] - times[0]),
+            ];
+          }
+          if (index === points.length - 1) {
+            return [
+              (point[0] - points[index - 1][0]) / (times[index] - times[index - 1]),
+              (point[1] - points[index - 1][1]) / (times[index] - times[index - 1]),
+            ];
+          }
+          return [
+            (points[index + 1][0] - points[index - 1][0]) / (times[index + 1] - times[index - 1]),
+            (points[index + 1][1] - points[index - 1][1]) / (times[index + 1] - times[index - 1]),
+          ];
+        });
+
+        for (let i = 0; i < times.length - 1; i += 1) {
+          const left = times[i];
+          const right = times[i + 1];
+          if (left <= t && t <= right) {
+            const dt = right - left;
+            const u = (t - left) / dt;
+            const u2 = u * u;
+            const u3 = u2 * u;
+            const h00 = 2 * u3 - 3 * u2 + 1;
+            const h10 = u3 - 2 * u2 + u;
+            const h01 = -2 * u3 + 3 * u2;
+            const h11 = u3 - u2;
+            return [
+              h00 * points[i][0] + h10 * dt * tangents[i][0] + h01 * points[i + 1][0] + h11 * dt * tangents[i + 1][0],
+              h00 * points[i][1] + h10 * dt * tangents[i][1] + h01 * points[i + 1][1] + h11 * dt * tangents[i + 1][1],
+            ];
+          }
+        }
+        return points[points.length - 1];
+      }
+
+      function renderCards() {
+        cardsNode.innerHTML = "";
+        const canvasWidth = state.data.previewWidth + OVERSCAN * 2;
+        const canvasHeight = state.data.previewHeight + OVERSCAN * 2;
+
+        state.data.previewImages.forEach((src, index) => {
+          const card = document.createElement("section");
+          card.className = "card";
+
+          const header = document.createElement("div");
+          header.className = "card-header";
+          header.innerHTML = `<strong>第 ${index + 1} 张</strong><span>t = ${state.data.times[index].toFixed(2)}</span>`;
+
+          const workspace = document.createElement("div");
+          workspace.className = "workspace";
+
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("viewBox", `0 0 ${canvasWidth} ${canvasHeight}`);
+          svg.dataset.index = String(index);
+
+          const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
+          image.setAttribute("href", src);
+          image.setAttribute("x", OVERSCAN);
+          image.setAttribute("y", OVERSCAN);
+          image.setAttribute("width", state.data.previewWidth);
+          image.setAttribute("height", state.data.previewHeight);
+
+          const boundary = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          boundary.setAttribute("class", "frame-boundary");
+          boundary.setAttribute("x", OVERSCAN);
+          boundary.setAttribute("y", OVERSCAN);
+          boundary.setAttribute("width", state.data.previewWidth);
+          boundary.setAttribute("height", state.data.previewHeight);
+          boundary.setAttribute("rx", "18");
+
+          svg.append(image, boundary);
+          workspace.append(svg);
+          card.append(header, workspace);
+          cardsNode.append(card);
+        });
+      }
+
+      function renderHandles() {
+        const svgs = cardsNode.querySelectorAll("svg");
+        svgs.forEach((svg, index) => {
+          while (svg.childNodes.length > 2) svg.removeChild(svg.lastChild);
+
+          for (const label of LABEL_ORDER) {
+            if (!state.visible[label]) continue;
+            const [x, y] = sceneToCanvasPixel(state.data.labels[label][index]);
+            const handle = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            handle.classList.add("handle");
+            if (state.selected && state.selected.label === label && state.selected.index === index) {
+              handle.classList.add("selected");
+            }
+            handle.dataset.label = label;
+            handle.dataset.index = String(index);
+            handle.addEventListener("pointerdown", beginDrag);
+
+            const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            ring.setAttribute("class", "ring");
+            ring.setAttribute("cx", x);
+            ring.setAttribute("cy", y);
+            ring.setAttribute("r", "15");
+
+            const core = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            core.setAttribute("class", "core");
+            core.setAttribute("cx", x);
+            core.setAttribute("cy", y);
+            core.setAttribute("r", "8");
+            core.setAttribute("fill", LABEL_META[label].color);
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("class", "point-label");
+            text.setAttribute("x", x + 16);
+            text.setAttribute("y", y - 16);
+            text.setAttribute("fill", LABEL_META[label].color);
+            text.textContent = LABEL_META[label].title;
+
+            handle.append(ring, core, text);
+            svg.append(handle);
+          }
+        });
+      }
+
+      function renderTable() {
+        coordTableNode.innerHTML = "";
+        state.data.times.forEach((time, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${time.toFixed(2)}</td>
+            <td>${fmtPoint(state.data.labels.x[index])}</td>
+            <td>${fmtPoint(state.data.labels.y[index])}</td>
+            <td>${fmtPoint(state.data.labels.z[index])}</td>
+            <td>${fmtPoint(state.data.labels.o[index])}</td>
+          `;
+          coordTableNode.append(row);
+        });
+      }
+
+      function framePointToChart(point) {
+        const chartWidth = 320;
+        const chartHeight = 180;
+        const x = ((point[0] / state.data.frameWidth) + 0.5) * chartWidth;
+        const y = (0.5 - (point[1] / state.data.frameHeight)) * chartHeight;
+        return [x, y];
+      }
+
+      function renderChart() {
+        while (chartNode.firstChild) chartNode.removeChild(chartNode.firstChild);
+
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("x", "0");
+        bg.setAttribute("y", "0");
+        bg.setAttribute("width", "320");
+        bg.setAttribute("height", "180");
+        bg.setAttribute("rx", "12");
+        bg.setAttribute("fill", "#101723");
+        bg.setAttribute("stroke", "rgba(73, 96, 127, 0.8)");
+        chartNode.append(bg);
+
+        LABEL_ORDER.forEach((label) => {
+          if (!state.visible[label]) return;
+          const color = LABEL_META[label].color;
+          const samples = [];
+          for (let i = 0; i <= 120; i += 1) {
+            const t = state.data.times[0] + ((state.data.times[state.data.times.length - 1] - state.data.times[0]) * i) / 120;
+            samples.push(framePointToChart(hermite(state.data.labels[label], state.data.times, t)));
+          }
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute(
+            "d",
+            samples.map((point, index) => `${index === 0 ? "M" : "L"} ${point[0].toFixed(2)} ${point[1].toFixed(2)}`).join(" "),
+          );
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", color);
+          path.setAttribute("stroke-width", "3");
+          chartNode.append(path);
+
+          state.data.labels[label].forEach((point, index) => {
+            const [x, y] = framePointToChart(point);
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dot.setAttribute("cx", x);
+            dot.setAttribute("cy", y);
+            dot.setAttribute("r", state.selected && state.selected.label === label && state.selected.index === index ? "6" : "4");
+            dot.setAttribute("fill", color);
+            dot.setAttribute("stroke", "rgba(255,255,255,0.9)");
+            dot.setAttribute("stroke-width", "1.5");
+            chartNode.append(dot);
+          });
+        });
+      }
+
+      function render() {
+        renderCards();
+        renderHandles();
+        renderTable();
+        renderChart();
+        setModeNote();
+      }
+
+      function getCanvasPoint(event, svg) {
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.viewBox.baseVal;
+        const x = ((event.clientX - rect.left) / rect.width) * viewBox.width + viewBox.x;
+        const y = ((event.clientY - rect.top) / rect.height) * viewBox.height + viewBox.y;
+        return [x, y];
+      }
+
+      function beginDrag(event) {
+        event.preventDefault();
+        const target = event.currentTarget;
+        state.selected = {
+          label: target.dataset.label,
+          index: Number(target.dataset.index),
+        };
+        state.drag = {
+          label: target.dataset.label,
+          index: Number(target.dataset.index),
+          svg: target.ownerSVGElement,
+        };
+        onPointerMove(event);
+        renderHandles();
+        renderChart();
+      }
+
+      function onPointerMove(event) {
+        if (!state.drag) return;
+        const [x, y] = getCanvasPoint(event, state.drag.svg);
+        const canvasWidth = state.data.previewWidth + OVERSCAN * 2;
+        const canvasHeight = state.data.previewHeight + OVERSCAN * 2;
+        const clampedX = clamp(x, 0, canvasWidth);
+        const clampedY = clamp(y, 0, canvasHeight);
+        const updatedPoint = canvasToScene(clampedX, clampedY);
+        if (isSharedLayout()) {
+          state.data.labels[state.drag.label] = state.data.labels[state.drag.label].map(() => [...updatedPoint]);
+        } else {
+          state.data.labels[state.drag.label][state.drag.index] = updatedPoint;
+        }
+        renderHandles();
+        renderTable();
+        renderChart();
+      }
+
+      function endDrag() {
+        state.drag = null;
+      }
+
+      async function save() {
+        setStatus("正在写回 revolve-slice-prototype.py…");
+        const response = await fetch("/api/keyframes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.data),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `保存失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus("已保存到 revolve-slice-prototype.py。");
+      }
+
+      document.getElementById("reload-btn").addEventListener("click", async () => {
+        try {
+          await loadData();
+        } catch (error) {
+          setStatus(formatUiError(error, "重新载入"), true);
+        }
+      });
+
+      document.getElementById("save-btn").addEventListener("click", async () => {
+        try {
+          await save();
+        } catch (error) {
+          setStatus(formatUiError(error, "保存"), true);
+        }
+      });
+
+      document.getElementById("copy-btn").addEventListener("click", async () => {
+        try {
+          await copySnippet();
+        } catch (error) {
+          setStatus(`复制失败: ${error}`, true);
+        }
+      });
+
+      LABEL_ORDER.forEach((label) => {
+        document.getElementById(`toggle-${label}`).addEventListener("change", (event) => {
+          state.visible[label] = event.target.checked;
+          renderHandles();
+          renderChart();
+        });
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (!state.selected || !state.data) return;
+        if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+
+        event.preventDefault();
+        const stepPx = event.shiftKey ? 10 : 1;
+        const dx = event.key === "ArrowLeft" ? -stepPx : event.key === "ArrowRight" ? stepPx : 0;
+        const dy = event.key === "ArrowUp" ? -stepPx : event.key === "ArrowDown" ? stepPx : 0;
+        const [px, py] = sceneToCanvasPixel(state.data.labels[state.selected.label][state.selected.index]);
+        const canvasWidth = state.data.previewWidth + OVERSCAN * 2;
+        const canvasHeight = state.data.previewHeight + OVERSCAN * 2;
+        const updatedPoint = canvasToScene(
+          clamp(px + dx, 0, canvasWidth),
+          clamp(py + dy, 0, canvasHeight),
+        );
+        if (isSharedLayout()) {
+          state.data.labels[state.selected.label] = state.data.labels[state.selected.label].map(() => [...updatedPoint]);
+        } else {
+          state.data.labels[state.selected.label][state.selected.index] = updatedPoint;
+        }
+        renderHandles();
+        renderTable();
+        renderChart();
+      });
+
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", endDrag);
+
+      loadData().catch((error) => {
+        setStatus(formatUiError(error, "读取"), true);
+      });
+    </script>
+  </body>
+</html>

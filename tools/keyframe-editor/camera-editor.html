@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Camera Keyframe Editor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f141b;
+        --panel: #17202c;
+        --panel-2: #1d2a39;
+        --panel-3: #243446;
+        --text: #eef3f8;
+        --muted: #a8b6c7;
+        --border: #304156;
+        --accent: #8dd2ff;
+        --accent-2: #8df2c4;
+        --danger: #ff8d7b;
+        --shadow: 0 16px 42px rgba(0, 0, 0, 0.26);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(141, 210, 255, 0.14), transparent 30%),
+          radial-gradient(circle at top right, rgba(141, 242, 196, 0.10), transparent 26%),
+          linear-gradient(180deg, #0b1016 0%, var(--bg) 100%);
+        color: var(--text);
+        font: 14px/1.45 "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(360px, 420px) 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        padding: 20px;
+        border-right: 1px solid var(--border);
+        background: rgba(15, 20, 27, 0.88);
+        backdrop-filter: blur(14px);
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow: auto;
+      }
+
+      .main {
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      h2 {
+        margin-top: 18px;
+        margin-bottom: 10px;
+        font-size: 16px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 16px 0 10px;
+      }
+
+      button,
+      .button-link {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #294055 0%, #1d3144 100%);
+        color: var(--text);
+        padding: 9px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      button.secondary,
+      .button-link.secondary {
+        background: linear-gradient(180deg, #233140 0%, #1a2633 100%);
+      }
+
+      button:hover,
+      .button-link:hover {
+        border-color: #507093;
+      }
+
+      .status {
+        min-height: 20px;
+        margin: 8px 0 14px;
+        color: var(--accent);
+        white-space: pre-wrap;
+      }
+
+      .hint,
+      .panel,
+      .summary,
+      .empty-preview {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(29, 42, 57, 0.74);
+        box-shadow: var(--shadow);
+      }
+
+      .hint,
+      .panel,
+      .summary {
+        padding: 14px;
+      }
+
+      .hint ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .selected-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+      }
+
+      .selected-header strong {
+        font-size: 17px;
+      }
+
+      .selected-header span {
+        color: var(--muted);
+      }
+
+      .control-group + .control-group {
+        margin-top: 14px;
+      }
+
+      .control-group h3 {
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: var(--accent-2);
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .field {
+        display: grid;
+        grid-template-columns: 96px 1fr 76px;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .field label {
+        color: var(--text);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      input[type="number"] {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0f151d;
+        color: var(--text);
+        padding: 8px 10px;
+        font: inherit;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        overflow: hidden;
+        background: rgba(23, 32, 44, 0.78);
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease;
+      }
+
+      .card:hover {
+        transform: translateY(-1px);
+        border-color: #527495;
+      }
+
+      .card.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(141, 210, 255, 0.28), var(--shadow);
+      }
+
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid rgba(48, 65, 86, 0.92);
+      }
+
+      .card-head strong {
+        font-size: 15px;
+      }
+
+      .card-head span {
+        color: var(--muted);
+      }
+
+      .card-preview {
+        background: #080c12;
+        aspect-ratio: 16 / 9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .card-preview img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .empty-preview {
+        width: calc(100% - 24px);
+        height: calc(100% - 24px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        text-align: center;
+        color: var(--muted);
+        background:
+          linear-gradient(135deg, rgba(141, 210, 255, 0.08), rgba(141, 242, 196, 0.06)),
+          #0b1118;
+      }
+
+      .card-meta {
+        padding: 12px 14px 14px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .pill-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        background: rgba(36, 52, 70, 0.76);
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .summary table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .summary th,
+      .summary td {
+        padding: 7px 4px;
+        border-bottom: 1px solid rgba(48, 65, 86, 0.65);
+        text-align: right;
+      }
+
+      .summary th:first-child,
+      .summary td:first-child {
+        text-align: left;
+      }
+
+      @media (max-width: 1120px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>相机关键帧编辑器</h1>
+        <p style="margin-top: 10px">
+          这里改的是圆盘<strong>完全展开之后</strong>的运镜关键帧。保存后会回写
+          <code>revolve-slice-prototype.py</code> 里的 <code>SHOWCASE_*</code> 常量。
+        </p>
+
+        <div class="toolbar">
+          <button id="reload-btn" class="secondary">从原型场景重新载入</button>
+          <button id="save-btn">保存到原型场景</button>
+          <button id="render-btn">保存并渲染预览</button>
+          <a class="button-link secondary" href="/">回 XYZO 编辑器</a>
+        </div>
+
+        <div id="status" class="status">正在读取当前相机关键帧…</div>
+
+        <div class="hint">
+          <strong>怎么用</strong>
+          <ul>
+            <li>右边 6 张卡片就是 6 个相机关键帧，点哪一张就改哪一张。</li>
+            <li><code>phi / theta / gamma / zoom</code> 控相机角度和缩放。</li>
+            <li><code>look x/y/z</code> 是相机看向的点，<code>offset x/y</code> 是画面构图偏移。</li>
+            <li>你停手后会自动保存并重渲当前这张预览；点“保存并渲染预览”会整套 6 张都更新。</li>
+          </ul>
+        </div>
+
+        <h2>当前关键帧</h2>
+        <div id="controls-panel" class="panel"></div>
+
+        <h2>时间总览</h2>
+        <div class="summary">
+          <table>
+            <thead>
+              <tr>
+                <th>帧</th>
+                <th>t</th>
+                <th>phi</th>
+                <th>theta</th>
+                <th>zoom</th>
+              </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="cards" class="cards"></div>
+      </main>
+    </div>
+
+    <script>
+      const AUTO_RENDER_DELAY_MS = 450;
+      const CONTROL_GROUPS = [
+        {
+          title: "Timing",
+          fields: [
+            { key: "time", label: "时间 t", min: 0, max: 1, step: 0.01 },
+          ],
+        },
+        {
+          title: "Camera",
+          fields: [
+            { key: "phi", label: "俯仰 phi", min: 0, max: 180, step: 0.1 },
+            { key: "theta", label: "环绕 theta", min: -180, max: 180, step: 0.1 },
+            { key: "gamma", label: "滚转 gamma", min: -180, max: 180, step: 0.1 },
+            { key: "zoom", label: "缩放 zoom", min: 0.2, max: 1.8, step: 0.01 },
+          ],
+        },
+        {
+          title: "Focus",
+          fields: [
+            { key: "focusX", label: "look x", min: -0.5, max: 4.5, step: 0.01 },
+            { key: "focusY", label: "look y", min: -0.5, max: 3.0, step: 0.01 },
+            { key: "focusZ", label: "look z", min: -2.8, max: 2.8, step: 0.01 },
+          ],
+        },
+        {
+          title: "Offset",
+          fields: [
+            { key: "offsetX", label: "offset x", min: -2.5, max: 2.5, step: 0.01 },
+            { key: "offsetY", label: "offset y", min: -2.5, max: 2.5, step: 0.01 },
+          ],
+        },
+      ];
+
+      const state = {
+        data: null,
+        selectedIndex: 0,
+        editRevision: 0,
+        autoRenderTimer: null,
+        autoRenderInFlight: false,
+        autoRenderQueued: false,
+      };
+
+      const statusNode = document.getElementById("status");
+      const cardsNode = document.getElementById("cards");
+      const controlsPanelNode = document.getElementById("controls-panel");
+      const summaryBodyNode = document.getElementById("summary-body");
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.style.color = isError ? "var(--danger)" : "var(--accent)";
+      }
+
+      function formatUiError(error, actionLabel = "请求") {
+        const text = String(error ?? "");
+        if (text.includes("Load failed") || text.includes("Failed to fetch")) {
+          return `${actionLabel}失败：本地编辑器服务没有连上。请刷新页面；如果还不行，重新启动 editor-server.py。`;
+        }
+        return text;
+      }
+
+      function fmt(value) {
+        const rounded = Math.round(Number(value) * 100) / 100;
+        return Number.isFinite(rounded) ? rounded.toFixed(2) : "--";
+      }
+
+      function cloneData(data) {
+        return JSON.parse(JSON.stringify(data));
+      }
+
+      function tupleText(values) {
+        return `(${values.map((value) => fmt(value)).join(", ")})`;
+      }
+
+      function getValue(index, key) {
+        if (key === "time") return state.data.times[index];
+        if (key === "phi") return state.data.camera[index][0];
+        if (key === "theta") return state.data.camera[index][1];
+        if (key === "gamma") return state.data.camera[index][2];
+        if (key === "zoom") return state.data.camera[index][3];
+        if (key === "focusX") return state.data.focus[index][0];
+        if (key === "focusY") return state.data.focus[index][1];
+        if (key === "focusZ") return state.data.focus[index][2];
+        if (key === "offsetX") return state.data.centerOffset[index][0];
+        if (key === "offsetY") return state.data.centerOffset[index][1];
+        throw new Error(`Unknown field: ${key}`);
+      }
+
+      function setValue(index, key, rawValue) {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) return;
+        if (key === "time") {
+          state.data.times[index] = value;
+          return;
+        }
+        if (key === "phi") state.data.camera[index][0] = value;
+        else if (key === "theta") state.data.camera[index][1] = value;
+        else if (key === "gamma") state.data.camera[index][2] = value;
+        else if (key === "zoom") state.data.camera[index][3] = value;
+        else if (key === "focusX") state.data.focus[index][0] = value;
+        else if (key === "focusY") state.data.focus[index][1] = value;
+        else if (key === "focusZ") state.data.focus[index][2] = value;
+        else if (key === "offsetX") state.data.centerOffset[index][0] = value;
+        else if (key === "offsetY") state.data.centerOffset[index][1] = value;
+      }
+
+      function validateData() {
+        for (let i = 0; i < state.data.times.length; i += 1) {
+          const time = Number(state.data.times[i]);
+          if (!Number.isFinite(time) || time < 0 || time > 1) {
+            return `第 ${i + 1} 个关键帧的时间要在 0 到 1 之间。`;
+          }
+          if (i > 0 && time <= Number(state.data.times[i - 1])) {
+            return "关键帧时间必须严格递增。";
+          }
+        }
+        return null;
+      }
+
+      function renderControls() {
+        const index = state.selectedIndex;
+        const time = getValue(index, "time");
+        controlsPanelNode.innerHTML = "";
+
+        const header = document.createElement("div");
+        header.className = "selected-header";
+        header.innerHTML = `<strong>第 ${index + 1} 帧</strong><span>t = ${fmt(time)}</span>`;
+        controlsPanelNode.append(header);
+
+        CONTROL_GROUPS.forEach((group) => {
+          const section = document.createElement("section");
+          section.className = "control-group";
+          section.innerHTML = `<h3>${group.title}</h3>`;
+
+          group.fields.forEach((field) => {
+            const row = document.createElement("div");
+            row.className = "field";
+
+            const label = document.createElement("label");
+            label.textContent = field.label;
+
+            const range = document.createElement("input");
+            range.type = "range";
+            range.min = String(field.min);
+            range.max = String(field.max);
+            range.step = String(field.step);
+            range.value = String(getValue(index, field.key));
+
+            const number = document.createElement("input");
+            number.type = "number";
+            number.min = String(field.min);
+            number.max = String(field.max);
+            number.step = String(field.step);
+            number.value = fmt(getValue(index, field.key));
+
+            const syncField = (sourceValue) => {
+              setValue(index, field.key, sourceValue);
+              state.editRevision += 1;
+              range.value = String(getValue(index, field.key));
+              number.value = fmt(getValue(index, field.key));
+              renderCards();
+              renderSummary();
+              scheduleAutoRender();
+            };
+
+            range.addEventListener("input", (event) => {
+              syncField(event.target.value);
+            });
+
+            number.addEventListener("input", (event) => {
+              syncField(event.target.value);
+            });
+
+            row.append(label, range, number);
+            section.append(row);
+          });
+
+          controlsPanelNode.append(section);
+        });
+      }
+
+      function buildPreviewUrl(src) {
+        return `${src}?v=${state.data.previewVersion || 0}`;
+      }
+
+      function renderCards() {
+        cardsNode.innerHTML = "";
+
+        state.data.times.forEach((time, index) => {
+          const card = document.createElement("article");
+          card.className = "card";
+          if (index === state.selectedIndex) {
+            card.classList.add("selected");
+          }
+          card.addEventListener("click", () => {
+            state.selectedIndex = index;
+            render();
+          });
+
+          const head = document.createElement("div");
+          head.className = "card-head";
+          head.innerHTML = `<strong>关键帧 ${index + 1}</strong><span>t = ${fmt(time)}</span>`;
+
+          const preview = document.createElement("div");
+          preview.className = "card-preview";
+          const previewSrc = state.data.previewImages[index];
+          if (previewSrc) {
+            const image = document.createElement("img");
+            image.src = buildPreviewUrl(previewSrc);
+            image.alt = `Keyframe ${index + 1}`;
+            image.addEventListener("error", () => {
+              preview.innerHTML = `<div class="empty-preview">这张预览还没生成出来。<br />点“保存并渲染预览”即可。</div>`;
+            }, { once: true });
+            preview.append(image);
+          } else {
+            preview.innerHTML = `<div class="empty-preview">还没有相机预览。<br />点“保存并渲染预览”生成 6 张展开完成视角。</div>`;
+          }
+
+          const meta = document.createElement("div");
+          meta.className = "card-meta";
+          meta.innerHTML = `
+            <div class="pill-row">
+              <span class="pill">phi ${fmt(state.data.camera[index][0])}</span>
+              <span class="pill">theta ${fmt(state.data.camera[index][1])}</span>
+              <span class="pill">zoom ${fmt(state.data.camera[index][3])}</span>
+            </div>
+            <div class="pill-row">
+              <span class="pill">look ${tupleText(state.data.focus[index])}</span>
+            </div>
+            <div class="pill-row">
+              <span class="pill">offset ${tupleText(state.data.centerOffset[index])}</span>
+            </div>
+          `;
+
+          card.append(head, preview, meta);
+          cardsNode.append(card);
+        });
+      }
+
+      function renderSummary() {
+        summaryBodyNode.innerHTML = "";
+        state.data.times.forEach((time, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>第 ${index + 1} 帧</td>
+            <td>${fmt(time)}</td>
+            <td>${fmt(state.data.camera[index][0])}</td>
+            <td>${fmt(state.data.camera[index][1])}</td>
+            <td>${fmt(state.data.camera[index][3])}</td>
+          `;
+          summaryBodyNode.append(row);
+        });
+      }
+
+      function render() {
+        renderControls();
+        renderCards();
+        renderSummary();
+      }
+
+      function mergePreviewMetadata(source) {
+        state.data.previewReady = source.previewReady;
+        state.data.previewVersion = source.previewVersion;
+        state.data.previewImages = source.previewImages;
+      }
+
+      async function renderCurrentFrame() {
+        if (state.autoRenderInFlight) {
+          state.autoRenderQueued = true;
+          return;
+        }
+
+        const validationError = validateData();
+        if (validationError) {
+          setStatus(validationError, true);
+          return;
+        }
+
+        state.autoRenderInFlight = true;
+        const requestRevision = state.editRevision;
+        const renderIndex = state.selectedIndex;
+        const payloadSnapshot = cloneData(state.data);
+
+        try {
+          setStatus(`正在自动渲染第 ${renderIndex + 1} 帧预览…`);
+          const response = await fetch("/api/camera-preview-frame", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              index: renderIndex,
+              payload: payloadSnapshot,
+            }),
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || `单帧渲染失败: ${response.status}`);
+          }
+
+          const responseData = await response.json();
+          if (requestRevision === state.editRevision) {
+            state.data = responseData;
+          } else {
+            mergePreviewMetadata(responseData);
+          }
+          render();
+          setStatus(`第 ${renderIndex + 1} 帧预览已更新。`);
+        } finally {
+          state.autoRenderInFlight = false;
+          if (state.autoRenderQueued) {
+            state.autoRenderQueued = false;
+            window.setTimeout(() => {
+              renderCurrentFrame().catch((error) => {
+                setStatus(formatUiError(error, "自动渲染"), true);
+              });
+            }, 0);
+          }
+        }
+      }
+
+      function scheduleAutoRender() {
+        if (state.autoRenderTimer) {
+          window.clearTimeout(state.autoRenderTimer);
+        }
+
+        const validationError = validateData();
+        if (validationError) {
+          setStatus(validationError, true);
+          return;
+        }
+
+        setStatus(`第 ${state.selectedIndex + 1} 帧已改动，停一下就会自动渲染这张预览…`);
+        state.autoRenderTimer = window.setTimeout(() => {
+          state.autoRenderTimer = null;
+          renderCurrentFrame().catch((error) => {
+            setStatus(formatUiError(error, "自动渲染"), true);
+          });
+        }, AUTO_RENDER_DELAY_MS);
+      }
+
+      async function loadData() {
+        setStatus("正在读取当前相机关键帧…");
+        const response = await fetch("/api/camera-keyframes");
+        if (!response.ok) {
+          throw new Error(`读取失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        state.selectedIndex = Math.min(state.selectedIndex, state.data.times.length - 1);
+        state.editRevision = 0;
+        render();
+        setStatus(
+          state.data.previewReady
+            ? "已载入 revolve-slice-prototype.py。右边是当前相机关键帧预览。"
+            : "已载入 revolve-slice-prototype.py。当前还没有相机预览，点“保存并渲染预览”即可生成。",
+        );
+      }
+
+      async function save() {
+        const validationError = validateData();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        if (state.autoRenderTimer) {
+          window.clearTimeout(state.autoRenderTimer);
+          state.autoRenderTimer = null;
+        }
+        setStatus("正在写回 revolve-slice-prototype.py…");
+        const response = await fetch("/api/camera-keyframes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.data),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `保存失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus("已保存到 revolve-slice-prototype.py。");
+      }
+
+      async function saveAndRender() {
+        await save();
+        setStatus("正在渲染完全展开后的 6 张相机预览…");
+        const response = await fetch("/api/camera-previews/render", {
+          method: "POST",
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `渲染失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus("预览已更新。现在右边 6 张图就是最新相机关键帧。");
+      }
+
+      document.getElementById("reload-btn").addEventListener("click", async () => {
+        try {
+          await loadData();
+        } catch (error) {
+          setStatus(formatUiError(error, "重新载入"), true);
+        }
+      });
+
+      document.getElementById("save-btn").addEventListener("click", async () => {
+        try {
+          await save();
+        } catch (error) {
+          setStatus(formatUiError(error, "保存"), true);
+        }
+      });
+
+      document.getElementById("render-btn").addEventListener("click", async () => {
+        try {
+          await saveAndRender();
+        } catch (error) {
+          setStatus(formatUiError(error, "渲染"), true);
+        }
+      });
+
+      loadData().catch((error) => {
+        setStatus(formatUiError(error, "读取"), true);
+      });
+    </script>
+  </body>
+</html>
