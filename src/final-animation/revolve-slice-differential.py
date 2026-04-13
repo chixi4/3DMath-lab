@@ -369,7 +369,7 @@ class RevolveSliceMGLDifferentialBase(base_scene.RevolveSliceMGLBase):
     def add_clip_state(self, clip_time: float) -> None:
         opening_t, differential_t, showcase_t, end_fade_t, phase = self.clip_progress(clip_time)
         if phase in {"showcase", "end_hold"}:
-            self.apply_showcase_motion_camera_state(showcase_t)
+            self.apply_active_showcase_camera_state(showcase_t)
         else:
             self.apply_showcase_camera_state(0.0)
 
@@ -432,7 +432,7 @@ class RevolveSliceShowcaseMGLDifferential(RevolveSliceMGLDifferentialBase):
 
         def update_frame(frame):
             if showcase_started["value"]:
-                self.apply_showcase_motion_camera_state(showcase_tracker.get_value())
+                self.apply_active_showcase_camera_state(showcase_tracker.get_value())
             else:
                 self.apply_showcase_camera_state(0.0)
 

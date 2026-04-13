@@ -18,6 +18,7 @@ SLICE_X1 = 2.3
 CURVE_END = 4.15
 
 THEME = os.environ.get("MANIM_THEME", "light").strip().lower()
+CAMERA_MODE = os.environ.get("VOLUME_OF_REVOLUTION_CAMERA_MODE", "motion").strip().lower()
 
 if THEME == "dark":
     BACKGROUND = BLACK
@@ -117,6 +118,9 @@ def hermite_endpoint_progress(t: float, start_slope: float, end_slope: float) ->
 class RevolveSliceMGLBase(ThreeDScene):
     samples = 0
     default_camera_config = {"background_color": BACKGROUND}
+
+    def use_fixed_showcase_camera(self) -> bool:
+        return CAMERA_MODE in {"fixed", "static", "locked", "still"}
 
     def to_world(self, x_ref: float, y_ref: float, z_ref: float) -> np.ndarray:
         return ORIGIN_SHIFT + np.array([X_SCALE * x_ref, -Z_SCALE * z_ref, Y_SCALE * y_ref], dtype=float)
@@ -700,6 +704,12 @@ class RevolveSliceMGLBase(ThreeDScene):
     def apply_showcase_motion_camera_state(self, showcase_t: float) -> None:
         self.apply_camera_values(*self.showcase_motion_camera_state(showcase_t))
 
+    def apply_active_showcase_camera_state(self, showcase_t: float) -> None:
+        if self.use_fixed_showcase_camera():
+            self.apply_showcase_camera_state(0.0)
+        else:
+            self.apply_showcase_motion_camera_state(showcase_t)
+
     def clip_progress(self, clip_time: float) -> tuple[float, float, bool]:
         clip_time = float(np.clip(clip_time, 0.0, EXACT_CLIP_DURATION))
         opening_start = START_HOLD_TIME
@@ -717,7 +727,7 @@ class RevolveSliceMGLBase(ThreeDScene):
     def add_clip_state(self, clip_time: float) -> None:
         opening_t, showcase_t, showcase_started = self.clip_progress(clip_time)
         if showcase_started:
-            self.apply_showcase_motion_camera_state(showcase_t)
+            self.apply_active_showcase_camera_state(showcase_t)
         else:
             self.apply_showcase_camera_state(0.0)
 
@@ -765,7 +775,7 @@ class RevolveSliceShowcaseMGL(RevolveSliceMGLBase):
 
         def update_frame(frame):
             if showcase_started["value"]:
-                self.apply_showcase_motion_camera_state(showcase_tracker.get_value())
+                self.apply_active_showcase_camera_state(showcase_tracker.get_value())
             else:
                 self.apply_showcase_camera_state(0.0)
 

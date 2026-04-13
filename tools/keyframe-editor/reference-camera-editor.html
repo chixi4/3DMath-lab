@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sqrt(x) Reference Camera Editor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #091018;
+        --panel: rgba(18, 27, 39, 0.88);
+        --panel-2: rgba(26, 38, 54, 0.92);
+        --panel-3: rgba(34, 49, 67, 0.92);
+        --text: #eef4fb;
+        --muted: #9eb0c4;
+        --border: #30455e;
+        --accent: #86dfff;
+        --accent-2: #8df2c4;
+        --danger: #ff8d7b;
+        --shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(134, 223, 255, 0.12), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(141, 242, 196, 0.08), transparent 28%),
+          linear-gradient(180deg, #05090f 0%, var(--bg) 100%);
+        color: var(--text);
+        font: 14px/1.5 "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+      }
+
+      code {
+        font-family: "SF Mono", "SFMono-Regular", ui-monospace, monospace;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(360px, 430px) 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        padding: 22px;
+        border-right: 1px solid var(--border);
+        background: rgba(8, 13, 20, 0.86);
+        backdrop-filter: blur(18px);
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow: auto;
+      }
+
+      .main {
+        padding: 22px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      h2 {
+        margin: 18px 0 10px;
+        font-size: 16px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 16px 0 10px;
+      }
+
+      button,
+      .button-link {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #28435a 0%, #1b3245 100%);
+        color: var(--text);
+        padding: 9px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+      }
+
+      button.secondary,
+      .button-link.secondary {
+        background: linear-gradient(180deg, #223243 0%, #172331 100%);
+      }
+
+      button:hover,
+      .button-link:hover {
+        border-color: #4f7598;
+      }
+
+      .status {
+        min-height: 20px;
+        margin: 8px 0 14px;
+        color: var(--accent);
+        white-space: pre-wrap;
+      }
+
+      .panel,
+      .hint,
+      .summary,
+      .preview-panel {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .panel,
+      .hint,
+      .summary {
+        padding: 14px;
+      }
+
+      .hint ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .field-group + .field-group {
+        margin-top: 16px;
+      }
+
+      .field-group h3 {
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: var(--accent-2);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .field {
+        display: grid;
+        grid-template-columns: 108px 1fr 78px;
+        gap: 10px;
+        align-items: center;
+        margin-top: 8px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      input[type="number"] {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0d141c;
+        color: var(--text);
+        padding: 8px 10px;
+        font: inherit;
+      }
+
+      .summary table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .summary th,
+      .summary td {
+        padding: 7px 4px;
+        border-bottom: 1px solid rgba(48, 69, 94, 0.62);
+        text-align: right;
+      }
+
+      .summary th:first-child,
+      .summary td:first-child {
+        text-align: left;
+      }
+
+      .preview-panel {
+        overflow: hidden;
+      }
+
+      .preview-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid rgba(48, 69, 94, 0.7);
+      }
+
+      .preview-head strong {
+        font-size: 17px;
+      }
+
+      .preview-head span {
+        color: var(--muted);
+      }
+
+      .preview-frame {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        background:
+          radial-gradient(circle at center, rgba(26, 38, 54, 0.42), transparent 62%),
+          #04070c;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .preview-frame img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .preview-empty {
+        max-width: 460px;
+        text-align: center;
+        padding: 20px;
+        color: var(--muted);
+      }
+
+      .preview-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        padding: 16px 18px 18px;
+      }
+
+      .pill {
+        border-radius: 14px;
+        border: 1px solid rgba(48, 69, 94, 0.86);
+        background: var(--panel-2);
+        padding: 10px 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .pill strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: var(--accent-2);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .pill span {
+        color: var(--text);
+      }
+
+      @media (max-width: 1120px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>sqrt(x) 参考视角编辑器</h1>
+        <p style="margin-top: 10px">
+          这里改的是 <code>sqrtx_full_rotation.py</code> 这条参考动画的固定机位。右边只看一张参考帧，
+          默认是中间附近的 <code>t = 0.50</code>。
+        </p>
+
+        <div class="toolbar">
+          <button id="reload-btn" class="secondary">重新载入</button>
+          <button id="save-btn">保存到场景</button>
+          <button id="render-btn">保存并刷新参考帧</button>
+          <a class="button-link secondary" href="/camera">旧相机编辑器</a>
+          <a class="button-link secondary" href="/">回主编辑器</a>
+        </div>
+
+        <div id="status" class="status">正在读取 sqrt(x) 参考相机参数…</div>
+
+        <div class="hint">
+          <strong>怎么用</strong>
+          <ul>
+            <li><code>phi / theta / gamma / zoom</code> 控相机角度和缩放。</li>
+            <li><code>center x/y/z</code> 控镜头中心点，也就是画面真正对准哪里。</li>
+            <li><code>origin shift / world scale</code> 是这条场景自己的坐标系平移和缩放，之前它们是隐藏的。</li>
+            <li><code>theta offset / focal distance</code> 会影响“正视图到底是不是你直觉里的正视图”以及透视强弱。</li>
+            <li><code>参考帧 t</code> 默认放在中段，你也可以自己挑更顺手的一帧来调。</li>
+            <li>改完点“保存并刷新参考帧”，右边就会立刻更新成新视角。</li>
+          </ul>
+        </div>
+
+        <h2>控制面板</h2>
+        <div id="controls-panel" class="panel"></div>
+
+        <h2>当前参数</h2>
+        <div class="summary">
+          <table>
+            <tbody id="summary-body"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="preview-panel">
+          <div class="preview-head">
+            <strong>参考帧预览</strong>
+            <span id="preview-caption">等待载入…</span>
+          </div>
+          <div id="preview-frame" class="preview-frame"></div>
+          <div class="preview-meta">
+            <div class="pill">
+              <strong>Scene</strong>
+              <span id="scene-path">--</span>
+            </div>
+            <div class="pill">
+              <strong>Camera</strong>
+              <span id="camera-pill">--</span>
+            </div>
+            <div class="pill">
+              <strong>Center</strong>
+              <span id="center-pill">--</span>
+            </div>
+            <div class="pill">
+              <strong>World Transform</strong>
+              <span id="world-pill">--</span>
+            </div>
+            <div class="pill">
+              <strong>Projection</strong>
+              <span id="projection-pill">--</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const CONTROL_GROUPS = [
+        {
+          title: "Preview",
+          fields: [
+            { key: "previewProgress", label: "参考帧 t", min: 0, max: 1, step: 0.01 },
+          ],
+        },
+        {
+          title: "Camera",
+          fields: [
+            { key: "phi", label: "俯仰 phi", min: 0, max: 180, step: 0.1 },
+            { key: "theta", label: "环绕 theta", min: -180, max: 180, step: 0.1 },
+            { key: "gamma", label: "滚转 gamma", min: -180, max: 180, step: 0.1 },
+            { key: "zoom", label: "缩放 zoom", min: 0.2, max: 1.8, step: 0.01 },
+          ],
+        },
+        {
+          title: "Frame Center",
+          fields: [
+            { key: "centerX", label: "center x", min: -4.0, max: 2.0, step: 0.01 },
+            { key: "centerY", label: "center y", min: -4.0, max: 2.0, step: 0.01 },
+            { key: "centerZ", label: "center z", min: -2.0, max: 3.5, step: 0.01 },
+          ],
+        },
+        {
+          title: "World Origin Shift",
+          fields: [
+            { key: "originX", label: "origin x", min: -4.0, max: 4.0, step: 0.01 },
+            { key: "originY", label: "origin y", min: -4.0, max: 4.0, step: 0.01 },
+            { key: "originZ", label: "origin z", min: -4.0, max: 4.0, step: 0.01 },
+          ],
+        },
+        {
+          title: "World Scale",
+          fields: [
+            { key: "scaleX", label: "scale x", min: 0.2, max: 4.0, step: 0.01 },
+            { key: "scaleY", label: "scale y", min: 0.2, max: 4.0, step: 0.01 },
+            { key: "scaleZ", label: "scale z", min: 0.2, max: 4.0, step: 0.01 },
+          ],
+        },
+        {
+          title: "Projection",
+          fields: [
+            { key: "thetaOffset", label: "theta 偏置", min: -180, max: 180, step: 0.1 },
+            { key: "focalDistance", label: "焦距 focal", min: 1.0, max: 100.0, step: 0.1 },
+          ],
+        },
+      ];
+
+      const state = {
+        data: null,
+      };
+
+      const statusNode = document.getElementById("status");
+      const controlsPanelNode = document.getElementById("controls-panel");
+      const summaryBodyNode = document.getElementById("summary-body");
+      const previewFrameNode = document.getElementById("preview-frame");
+      const previewCaptionNode = document.getElementById("preview-caption");
+      const scenePathNode = document.getElementById("scene-path");
+      const cameraPillNode = document.getElementById("camera-pill");
+      const centerPillNode = document.getElementById("center-pill");
+      const worldPillNode = document.getElementById("world-pill");
+      const projectionPillNode = document.getElementById("projection-pill");
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.style.color = isError ? "var(--danger)" : "var(--accent)";
+      }
+
+      function formatUiError(error, actionLabel = "请求") {
+        const text = String(error ?? "");
+        if (text.includes("Load failed") || text.includes("Failed to fetch")) {
+          return `${actionLabel}失败：本地编辑器服务没有连上。请刷新页面；如果还不行，重新启动 editor-server.py。`;
+        }
+        return text;
+      }
+
+      function fmt(value) {
+        const rounded = Math.round(Number(value) * 100) / 100;
+        return Number.isFinite(rounded) ? rounded.toFixed(2) : "--";
+      }
+
+      function tupleText(values) {
+        return `(${values.map((value) => fmt(value)).join(", ")})`;
+      }
+
+      function buildPreviewUrl(src) {
+        return `${src}?v=${state.data.previewVersion || 0}`;
+      }
+
+      function getValue(key) {
+        if (key === "previewProgress") return state.data.previewProgress;
+        if (key === "phi") return state.data.camera[0];
+        if (key === "theta") return state.data.camera[1];
+        if (key === "gamma") return state.data.camera[2];
+        if (key === "zoom") return state.data.camera[3];
+        if (key === "centerX") return state.data.center[0];
+        if (key === "centerY") return state.data.center[1];
+        if (key === "centerZ") return state.data.center[2];
+        if (key === "originX") return state.data.worldOrigin[0];
+        if (key === "originY") return state.data.worldOrigin[1];
+        if (key === "originZ") return state.data.worldOrigin[2];
+        if (key === "scaleX") return state.data.worldScale[0];
+        if (key === "scaleY") return state.data.worldScale[1];
+        if (key === "scaleZ") return state.data.worldScale[2];
+        if (key === "thetaOffset") return state.data.thetaOffset;
+        if (key === "focalDistance") return state.data.focalDistance;
+        throw new Error(`Unknown field: ${key}`);
+      }
+
+      function setValue(key, rawValue) {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) return;
+        if (key === "previewProgress") state.data.previewProgress = value;
+        else if (key === "phi") state.data.camera[0] = value;
+        else if (key === "theta") state.data.camera[1] = value;
+        else if (key === "gamma") state.data.camera[2] = value;
+        else if (key === "zoom") state.data.camera[3] = value;
+        else if (key === "centerX") state.data.center[0] = value;
+        else if (key === "centerY") state.data.center[1] = value;
+        else if (key === "centerZ") state.data.center[2] = value;
+        else if (key === "originX") state.data.worldOrigin[0] = value;
+        else if (key === "originY") state.data.worldOrigin[1] = value;
+        else if (key === "originZ") state.data.worldOrigin[2] = value;
+        else if (key === "scaleX") state.data.worldScale[0] = value;
+        else if (key === "scaleY") state.data.worldScale[1] = value;
+        else if (key === "scaleZ") state.data.worldScale[2] = value;
+        else if (key === "thetaOffset") state.data.thetaOffset = value;
+        else if (key === "focalDistance") state.data.focalDistance = value;
+      }
+
+      function validateData() {
+        if (state.data.previewProgress < 0 || state.data.previewProgress > 1) {
+          return "参考帧 t 必须在 0 到 1 之间。";
+        }
+        if (state.data.worldScale.some((value) => Math.abs(Number(value)) < 0.000001)) {
+          return "world scale 不能是 0。";
+        }
+        if (!(Number(state.data.focalDistance) > 0)) {
+          return "焦距 focal 必须大于 0。";
+        }
+        return null;
+      }
+
+      function renderControls() {
+        controlsPanelNode.innerHTML = "";
+
+        CONTROL_GROUPS.forEach((group) => {
+          const section = document.createElement("section");
+          section.className = "field-group";
+          section.innerHTML = `<h3>${group.title}</h3>`;
+
+          group.fields.forEach((field) => {
+            const row = document.createElement("div");
+            row.className = "field";
+
+            const label = document.createElement("label");
+            label.textContent = field.label;
+
+            const range = document.createElement("input");
+            range.type = "range";
+            range.min = String(field.min);
+            range.max = String(field.max);
+            range.step = String(field.step);
+            range.value = String(getValue(field.key));
+
+            const number = document.createElement("input");
+            number.type = "number";
+            number.min = String(field.min);
+            number.max = String(field.max);
+            number.step = String(field.step);
+            number.value = fmt(getValue(field.key));
+
+            const syncField = (sourceValue) => {
+              setValue(field.key, sourceValue);
+              range.value = String(getValue(field.key));
+              number.value = fmt(getValue(field.key));
+              renderSummary();
+            };
+
+            range.addEventListener("input", (event) => syncField(event.target.value));
+            number.addEventListener("input", (event) => syncField(event.target.value));
+
+            row.append(label, range, number);
+            section.append(row);
+          });
+
+          controlsPanelNode.append(section);
+        });
+      }
+
+      function renderSummary() {
+        summaryBodyNode.innerHTML = `
+          <tr><th>参考帧</th><td>t = ${fmt(state.data.previewProgress)}</td></tr>
+          <tr><th>Camera</th><td>${tupleText(state.data.camera)}</td></tr>
+          <tr><th>Center</th><td>${tupleText(state.data.center)}</td></tr>
+          <tr><th>World Origin</th><td>${tupleText(state.data.worldOrigin)}</td></tr>
+          <tr><th>World Scale</th><td>${tupleText(state.data.worldScale)}</td></tr>
+          <tr><th>Theta Offset</th><td>${fmt(state.data.thetaOffset)}</td></tr>
+          <tr><th>Focal Distance</th><td>${fmt(state.data.focalDistance)}</td></tr>
+        `;
+        previewCaptionNode.textContent = `当前参考帧：t = ${fmt(state.data.previewProgress)}`;
+        scenePathNode.textContent = state.data.scenePath;
+        cameraPillNode.textContent = tupleText(state.data.camera);
+        centerPillNode.textContent = tupleText(state.data.center);
+        worldPillNode.textContent = `origin ${tupleText(state.data.worldOrigin)} / scale ${tupleText(state.data.worldScale)}`;
+        projectionPillNode.textContent = `theta offset ${fmt(state.data.thetaOffset)} / focal ${fmt(state.data.focalDistance)}`;
+      }
+
+      function renderPreview() {
+        previewFrameNode.innerHTML = "";
+        if (state.data.previewImage) {
+          const image = document.createElement("img");
+          image.src = buildPreviewUrl(state.data.previewImage);
+          image.alt = "sqrt(x) reference preview";
+          image.addEventListener("error", () => {
+            previewFrameNode.innerHTML = `<div class="preview-empty">参考帧图片暂时还没生成出来。<br />点“保存并刷新参考帧”即可。</div>`;
+          }, { once: true });
+          previewFrameNode.append(image);
+          return;
+        }
+
+        previewFrameNode.innerHTML = `<div class="preview-empty">还没有参考帧预览。<br />点“保存并刷新参考帧”生成一张中间帧即可开始调机位。</div>`;
+      }
+
+      function render() {
+        renderControls();
+        renderSummary();
+        renderPreview();
+      }
+
+      async function loadData() {
+        setStatus("正在读取 sqrt(x) 参考相机参数…");
+        const response = await fetch("/api/reference-camera");
+        if (!response.ok) {
+          throw new Error(`读取失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus(
+          state.data.previewReady
+            ? "已载入 sqrtx_full_rotation.py。右边就是当前参考帧。"
+            : "已载入 sqrtx_full_rotation.py。现在点“保存并刷新参考帧”即可生成中间参考图。",
+        );
+      }
+
+      async function save() {
+        const validationError = validateData();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        setStatus("正在写回 sqrtx_full_rotation.py…");
+        const response = await fetch("/api/reference-camera", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.data),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `保存失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus("已保存到 sqrtx_full_rotation.py。");
+      }
+
+      async function saveAndRender() {
+        const validationError = validateData();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        setStatus("正在保存并刷新 sqrt(x) 中间参考帧…");
+        const response = await fetch("/api/reference-camera-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.data),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `刷新失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        render();
+        setStatus("参考帧已更新。现在右边看到的就是最新机位。");
+      }
+
+      document.getElementById("reload-btn").addEventListener("click", async () => {
+        try {
+          await loadData();
+        } catch (error) {
+          setStatus(formatUiError(error, "重新载入"), true);
+        }
+      });
+
+      document.getElementById("save-btn").addEventListener("click", async () => {
+        try {
+          await save();
+        } catch (error) {
+          setStatus(formatUiError(error, "保存"), true);
+        }
+      });
+
+      document.getElementById("render-btn").addEventListener("click", async () => {
+        try {
+          await saveAndRender();
+        } catch (error) {
+          setStatus(formatUiError(error, "刷新参考帧"), true);
+        }
+      });
+
+      loadData().catch((error) => {
+        setStatus(formatUiError(error, "读取"), true);
+      });
+    </script>
+  </body>
+</html>

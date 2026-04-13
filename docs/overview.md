@@ -1,12 +1,14 @@
 # Overview
 
-## 这个仓库为什么同时有三块内容
+## 这个仓库为什么同时有四块内容
 
 `3DMath-lab` 不是单纯的成片仓，也不是只存实验脚本的草稿仓。
-它把同一条动画项目拆成三个公开层级：
+它把同一条动画项目拆成四个公开层级：
 
 - `src/final-animation/`
   真正负责最终版成片的代码。
+- `src/reference-animation/`
+  固定机位参考片和参考帧的独立生产链。
 - `src/prototype-manimce/`
   早期实验和结构验证代码。
 - `tools/keyframe-editor/`
@@ -25,6 +27,10 @@
 - [`../README.md`](../README.md)
 - [`final-pipeline.md`](final-pipeline.md)
 
+如果你想看这次为了 `sqrt(x)` 固定机位参考视频到底新增了什么，再看：
+
+- [`reference-video-upgrade.md`](reference-video-upgrade.md)
+
 ## 代码分区说明
 
 ### `src/final-animation/`
@@ -37,6 +43,11 @@
   把 linked rectangles 合成到既有渲染上的后期脚本。
 - `minimal-smoke-scene.py`
   环境 smoke test。
+
+### `src/reference-animation/`
+
+- `sqrtx_full_rotation.py`
+  `sqrt(x)` 固定机位参考视频与参考帧场景。
 
 ### `src/prototype-manimce/`
 
@@ -53,6 +64,10 @@
   标签关键帧编辑页面。
 - `camera-editor.html`
   相机关键帧编辑页面。
+- `reference-label-editor.html`
+  参考视频 `xyz` 标签布局编辑页面。
+- `reference-camera-editor.html`
+  参考视频固定机位与参考帧编辑页面。
 
 ### `scripts/`
 
@@ -64,6 +79,16 @@
   稳定性、CPU/GPU 对比和批量工具。
 - `windows/`
   Windows 机器上的辅助入口。
+
+## 本次参考视频升级的入口
+
+如果你想从“新增了什么”这个角度看仓库，建议按这个顺序：
+
+1. [`reference-video-upgrade.md`](reference-video-upgrade.md)
+2. [`../src/reference-animation/sqrtx_full_rotation.py`](../src/reference-animation/sqrtx_full_rotation.py)
+3. [`../scripts/render/render-sqrtx-reference.sh`](../scripts/render/render-sqrtx-reference.sh)
+4. [`../tools/keyframe-editor/reference-camera-editor.html`](../tools/keyframe-editor/reference-camera-editor.html)
+5. [`../tools/keyframe-editor/reference-label-editor.html`](../tools/keyframe-editor/reference-label-editor.html)
 
 ## 公开仓不包含什么
 

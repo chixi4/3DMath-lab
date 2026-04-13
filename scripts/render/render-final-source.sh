@@ -8,11 +8,16 @@ OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/output/final}"
 OUTPUT_NAME="${1:-volume-of-revolution-source-1080p60}"
 QUALITY_FLAG="${QUALITY_FLAG:---hd}"
 CONFIG_FILE_PATH="${CONFIG_FILE_PATH:-$REPO_ROOT/config/manimgl-60fps.yml}"
+MANIMGL_BIN="${MANIMGL_BIN:-$REPO_ROOT/.venv-manimgl/bin/manimgl}"
+
+if [ ! -x "$MANIMGL_BIN" ] && [ -x "/Users/yuookie/Documents/dev/manim/.venv-manimgl/bin/manimgl" ]; then
+  MANIMGL_BIN="/Users/yuookie/Documents/dev/manim/.venv-manimgl/bin/manimgl"
+fi
 
 mkdir -p "$OUTPUT_DIR"
 
 cmd=(
-  "$REPO_ROOT/.venv-manimgl/bin/manimgl"
+  "$MANIMGL_BIN"
   "$REPO_ROOT/src/final-animation/revolve-slice-differential.py"
   RevolveSliceShowcaseMGLDifferential
   -w

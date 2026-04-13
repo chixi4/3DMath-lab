@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sqrt(x) Reference Label Editor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #081018;
+        --panel: rgba(18, 28, 40, 0.9);
+        --panel-2: rgba(24, 37, 52, 0.94);
+        --border: #31465f;
+        --text: #eef5fb;
+        --muted: #9db0c3;
+        --accent: #8ce2ff;
+        --accent-2: #96f3c9;
+        --danger: #ff9384;
+        --shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(140, 226, 255, 0.12), transparent 30%),
+          radial-gradient(circle at bottom right, rgba(150, 243, 201, 0.08), transparent 28%),
+          linear-gradient(180deg, #04080d 0%, var(--bg) 100%);
+        color: var(--text);
+        font: 14px/1.5 "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+      }
+
+      code {
+        font-family: "SF Mono", "SFMono-Regular", ui-monospace, monospace;
+      }
+
+      button,
+      input[type="number"],
+      input[type="range"] {
+        font: inherit;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(360px, 420px) 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow: auto;
+        padding: 22px;
+        border-right: 1px solid var(--border);
+        background: rgba(8, 13, 20, 0.86);
+        backdrop-filter: blur(18px);
+      }
+
+      .main {
+        padding: 22px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      h2 {
+        margin: 18px 0 10px;
+        font-size: 16px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 16px 0 10px;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 12px;
+        background: linear-gradient(180deg, #28435a 0%, #1b3245 100%);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: linear-gradient(180deg, #223243 0%, #172331 100%);
+      }
+
+      button:hover {
+        border-color: #4f7598;
+      }
+
+      .status {
+        min-height: 20px;
+        margin: 8px 0 14px;
+        color: var(--accent);
+        white-space: pre-wrap;
+      }
+
+      .panel,
+      .hint,
+      .summary,
+      .card,
+      .coords {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .panel,
+      .hint,
+      .summary {
+        padding: 14px;
+      }
+
+      .hint ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .summary table,
+      .coords table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .summary th,
+      .summary td,
+      .coords th,
+      .coords td {
+        padding: 7px 4px;
+        border-bottom: 1px solid rgba(49, 70, 95, 0.64);
+        text-align: right;
+      }
+
+      .summary th:first-child,
+      .summary td:first-child,
+      .coords th:first-child,
+      .coords td:first-child {
+        text-align: left;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        overflow: hidden;
+      }
+
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid rgba(49, 70, 95, 0.64);
+      }
+
+      .card-head strong {
+        font-size: 17px;
+      }
+
+      .card-head span {
+        color: var(--muted);
+      }
+
+      .card-body {
+        padding: 16px 18px 18px;
+      }
+
+      .size-row {
+        display: grid;
+        grid-template-columns: 82px 1fr 86px;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      input[type="number"] {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0d141c;
+        color: var(--text);
+        padding: 8px 10px;
+      }
+
+      .preview-stage {
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
+        border: 1px solid rgba(49, 70, 95, 0.78);
+        background:
+          radial-gradient(circle at center, rgba(26, 38, 54, 0.36), transparent 62%),
+          #03070c;
+        --display-scale: 0.2;
+      }
+
+      .preview-stage img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .label-layer {
+        position: absolute;
+        inset: 0;
+      }
+
+      .label-node {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: #ffffff;
+        font-family: "STIX Two Text", "Times New Roman", "Songti SC", serif;
+        font-style: italic;
+        font-weight: 700;
+        font-size: calc(var(--label-height-px) * var(--display-scale) * 0.88px);
+        line-height: 1;
+        cursor: grab;
+        user-select: none;
+      }
+
+      .label-node:focus-visible {
+        outline: 2px solid rgba(140, 226, 255, 0.85);
+        outline-offset: 6px;
+        border-radius: 10px;
+      }
+
+      .label-node.selected {
+        text-shadow: 0 0 0 rgba(0, 0, 0, 0), 0 0 18px rgba(140, 226, 255, 0.34);
+      }
+
+      .coords {
+        margin-top: 14px;
+        padding: 12px 14px;
+        background: var(--panel-2);
+      }
+
+      .coords strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--accent-2);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(49, 70, 95, 0.78);
+        background: rgba(23, 35, 49, 0.82);
+        color: var(--muted);
+      }
+
+      @media (max-width: 1180px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>sqrt(x) 参考标签编辑器</h1>
+        <p>这里不再自动猜 `x / y / z` 的位置。你直接拖两张 4K 参考图上的字母，保存后，最终合成脚本会直接读取这份配置。</p>
+
+        <div class="toolbar">
+          <button id="reload-btn" class="secondary">重新载入</button>
+          <button id="save-btn">保存配置</button>
+          <button id="copy-btn" class="secondary">复制 JSON</button>
+        </div>
+
+        <div id="status" class="status">正在读取标签布局…</div>
+        <div id="dirty-note" class="status" style="margin-top: -8px; color: var(--muted)"></div>
+
+        <div class="hint">
+          <strong>操作</strong>
+          <ul>
+            <li>直接拖字母改位置，`phi30 / phi70` 各自独立。</li>
+            <li>点选后可以用方向键微调，`Shift + 方向键` 是 10px。</li>
+            <li>字号用每张图上方的滑杆调整，最终视频会按分辨率同比例缩放。</li>
+          </ul>
+        </div>
+
+        <h2>当前选中</h2>
+        <div id="selection-panel" class="panel"></div>
+
+        <h2>配置概览</h2>
+        <div class="summary">
+          <table>
+            <thead>
+              <tr>
+                <th>视角</th>
+                <th>字号</th>
+                <th>x</th>
+                <th>y</th>
+                <th>z</th>
+              </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+          </table>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="cards" class="cards"></div>
+      </main>
+    </div>
+
+    <script>
+      const PRESET_ORDER = ["phi30", "phi70"];
+      const LABEL_ORDER = ["x", "y", "z"];
+
+      const state = {
+        data: null,
+        selected: null,
+        drag: null,
+        dirty: false,
+      };
+
+      const cardsNode = document.getElementById("cards");
+      const statusNode = document.getElementById("status");
+      const dirtyNoteNode = document.getElementById("dirty-note");
+      const summaryBodyNode = document.getElementById("summary-body");
+      const selectionPanelNode = document.getElementById("selection-panel");
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.style.color = isError ? "var(--danger)" : "var(--accent)";
+      }
+
+      function setDirty(dirty) {
+        state.dirty = dirty;
+        dirtyNoteNode.textContent = dirty
+          ? "有未保存改动。保存后，合成脚本会直接读取这份布局。"
+          : `配置文件：${state.data?.configPath ?? ""}`;
+      }
+
+      function fmt(value) {
+        const rounded = Math.round(Number(value) * 100) / 100;
+        return rounded.toFixed(2);
+      }
+
+      function formatUiError(error, actionLabel = "请求") {
+        const text = String(error ?? "");
+        if (text.includes("Load failed") || text.includes("Failed to fetch")) {
+          return `${actionLabel}失败：本地编辑器服务没有连接上。请刷新页面；如果还不行，重新启动 editor-server.py。`;
+        }
+        return text;
+      }
+
+      async function loadData() {
+        setStatus("正在读取标签布局…");
+        const response = await fetch("/api/reference-label-layouts");
+        if (!response.ok) {
+          throw new Error(`读取失败: ${response.status}`);
+        }
+        state.data = await response.json();
+        state.selected = null;
+        state.drag = null;
+        render();
+        setDirty(false);
+        setStatus("已载入参考标签布局。拖动字母后点“保存配置”即可。");
+      }
+
+      async function saveData() {
+        const response = await fetch("/api/reference-label-layouts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.data),
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        state.data = await response.json();
+        render();
+        setDirty(false);
+        setStatus("已保存 reference-label-layouts.json。");
+      }
+
+      async function copyJson() {
+        await navigator.clipboard.writeText(JSON.stringify(state.data, null, 2));
+        setStatus("已复制当前布局 JSON。");
+      }
+
+      function clamp(value, low, high) {
+        return Math.max(low, Math.min(high, value));
+      }
+
+      function getPreset(presetName) {
+        return state.data.presets[presetName];
+      }
+
+      function selectLabel(presetName, label) {
+        state.selected = { presetName, label };
+        syncSelectionPanel();
+        syncSummary();
+        syncLabelClasses();
+      }
+
+      function syncSelectionPanel() {
+        if (!state.data) {
+          selectionPanelNode.innerHTML = "<p>尚未载入数据。</p>";
+          return;
+        }
+        if (!state.selected) {
+          selectionPanelNode.innerHTML = "<p>点选任意一个字母，就能看到当前坐标并用方向键微调。</p>";
+          return;
+        }
+
+        const preset = getPreset(state.selected.presetName);
+        const point = preset.labels[state.selected.label];
+        selectionPanelNode.innerHTML = `
+          <p><strong>${preset.title}</strong> / <code>${state.selected.label}</code></p>
+          <p>坐标：<code>x = ${fmt(point.x)}</code>，<code>y = ${fmt(point.y)}</code></p>
+          <p>字号：<code>${fmt(preset.labelHeightPx)}px</code></p>
+        `;
+      }
+
+      function syncSummary() {
+        summaryBodyNode.innerHTML = "";
+        PRESET_ORDER.forEach((presetName) => {
+          const preset = getPreset(presetName);
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${preset.title}</td>
+            <td>${fmt(preset.labelHeightPx)}</td>
+            <td>${fmt(preset.labels.x.x)}, ${fmt(preset.labels.x.y)}</td>
+            <td>${fmt(preset.labels.y.x)}, ${fmt(preset.labels.y.y)}</td>
+            <td>${fmt(preset.labels.z.x)}, ${fmt(preset.labels.z.y)}</td>
+          `;
+          summaryBodyNode.append(row);
+        });
+      }
+
+      function syncStageScales() {
+        document.querySelectorAll(".preview-stage").forEach((stage) => {
+          const preset = getPreset(stage.dataset.preset);
+          const scale = stage.clientHeight / Math.max(1, preset.baseHeight);
+          stage.style.setProperty("--display-scale", String(scale));
+        });
+      }
+
+      function syncLabelClasses() {
+        document.querySelectorAll(".label-node").forEach((node) => {
+          const isSelected =
+            state.selected &&
+            node.dataset.preset === state.selected.presetName &&
+            node.dataset.label === state.selected.label;
+          node.classList.toggle("selected", Boolean(isSelected));
+        });
+      }
+
+      function syncCards() {
+        PRESET_ORDER.forEach((presetName) => {
+          const preset = getPreset(presetName);
+          const stage = document.querySelector(`.preview-stage[data-preset="${presetName}"]`);
+          if (!stage) return;
+          stage.style.aspectRatio = `${preset.baseWidth} / ${preset.baseHeight}`;
+
+          const range = document.querySelector(`input[data-role="size-range"][data-preset="${presetName}"]`);
+          const number = document.querySelector(`input[data-role="size-number"][data-preset="${presetName}"]`);
+          if (range) range.value = String(preset.labelHeightPx);
+          if (number) number.value = String(Math.round(preset.labelHeightPx));
+
+          LABEL_ORDER.forEach((label) => {
+            const node = document.querySelector(`.label-node[data-preset="${presetName}"][data-label="${label}"]`);
+            const point = preset.labels[label];
+            if (!node) return;
+            node.style.left = `${(point.x / preset.baseWidth) * 100}%`;
+            node.style.top = `${(point.y / preset.baseHeight) * 100}%`;
+            node.style.setProperty("--label-height-px", String(preset.labelHeightPx));
+          });
+
+          const tableBody = document.querySelector(`tbody[data-preset="${presetName}"]`);
+          if (tableBody) {
+            tableBody.innerHTML = LABEL_ORDER.map((label) => {
+              const point = preset.labels[label];
+              return `<tr><td>${label}</td><td>${fmt(point.x)}</td><td>${fmt(point.y)}</td></tr>`;
+            }).join("");
+          }
+        });
+
+        syncSelectionPanel();
+        syncSummary();
+        syncLabelClasses();
+        requestAnimationFrame(syncStageScales);
+      }
+
+      function render() {
+        cardsNode.innerHTML = "";
+
+        PRESET_ORDER.forEach((presetName) => {
+          const preset = getPreset(presetName);
+          const card = document.createElement("section");
+          card.className = "card";
+
+          const previewImage = preset.previewImage
+            ? `<img src="${preset.previewImage}" alt="${preset.title} preview" />`
+            : `<div style="padding: 24px; color: var(--muted)">预览图还没生成。先在本地渲染 4K 参考图后再刷新这里。</div>`;
+
+          card.innerHTML = `
+            <div class="card-head">
+              <strong>${preset.title}</strong>
+              <span class="badge">${preset.baseWidth} × ${preset.baseHeight}</span>
+            </div>
+            <div class="card-body">
+              <div class="size-row">
+                <label for="size-${presetName}">标签高度</label>
+                <input
+                  id="size-${presetName}"
+                  data-role="size-range"
+                  data-preset="${presetName}"
+                  type="range"
+                  min="72"
+                  max="180"
+                  step="1"
+                />
+                <input
+                  data-role="size-number"
+                  data-preset="${presetName}"
+                  type="number"
+                  min="72"
+                  max="180"
+                  step="1"
+                />
+              </div>
+              <div class="preview-stage" data-preset="${presetName}">
+                ${previewImage}
+                <div class="label-layer">
+                  ${LABEL_ORDER.map(
+                    (label) => `
+                      <button
+                        class="label-node"
+                        data-preset="${presetName}"
+                        data-label="${label}"
+                        type="button"
+                      >${label}</button>
+                    `,
+                  ).join("")}
+                </div>
+              </div>
+              <div class="coords">
+                <strong>当前坐标</strong>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>X</th>
+                      <th>Y</th>
+                    </tr>
+                  </thead>
+                  <tbody data-preset="${presetName}"></tbody>
+                </table>
+              </div>
+            </div>
+          `;
+
+          cardsNode.append(card);
+        });
+
+        document.querySelectorAll(".label-node").forEach((node) => {
+          node.addEventListener("pointerdown", beginDrag);
+          node.addEventListener("click", () => {
+            selectLabel(node.dataset.preset, node.dataset.label);
+          });
+        });
+
+        document.querySelectorAll('input[data-role="size-range"]').forEach((input) => {
+          input.addEventListener("input", () => {
+            updateLabelHeight(input.dataset.preset, Number(input.value));
+          });
+        });
+
+        document.querySelectorAll('input[data-role="size-number"]').forEach((input) => {
+          input.addEventListener("input", () => {
+            updateLabelHeight(input.dataset.preset, Number(input.value));
+          });
+        });
+
+        document.querySelectorAll(".preview-stage img").forEach((image) => {
+          image.addEventListener("load", () => requestAnimationFrame(syncStageScales));
+        });
+
+        syncCards();
+      }
+
+      function updateLabelHeight(presetName, rawValue) {
+        if (!Number.isFinite(rawValue)) return;
+        const preset = getPreset(presetName);
+        preset.labelHeightPx = clamp(rawValue, 72, 180);
+        setDirty(true);
+        syncCards();
+      }
+
+      function getBasePointFromEvent(event, presetName) {
+        const stage = document.querySelector(`.preview-stage[data-preset="${presetName}"]`);
+        const preset = getPreset(presetName);
+        const rect = stage.getBoundingClientRect();
+        const x = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1) * preset.baseWidth;
+        const y = clamp((event.clientY - rect.top) / Math.max(rect.height, 1), 0, 1) * preset.baseHeight;
+        return { x, y };
+      }
+
+      function setLabelPoint(presetName, label, point) {
+        const preset = getPreset(presetName);
+        preset.labels[label].x = clamp(point.x, 0, preset.baseWidth);
+        preset.labels[label].y = clamp(point.y, 0, preset.baseHeight);
+        setDirty(true);
+        syncCards();
+      }
+
+      function beginDrag(event) {
+        event.preventDefault();
+        const presetName = event.currentTarget.dataset.preset;
+        const label = event.currentTarget.dataset.label;
+        selectLabel(presetName, label);
+        state.drag = { presetName, label };
+        setLabelPoint(presetName, label, getBasePointFromEvent(event, presetName));
+      }
+
+      function handlePointerMove(event) {
+        if (!state.drag) return;
+        event.preventDefault();
+        setLabelPoint(state.drag.presetName, state.drag.label, getBasePointFromEvent(event, state.drag.presetName));
+      }
+
+      function handlePointerUp() {
+        state.drag = null;
+      }
+
+      function handleKeydown(event) {
+        if (!state.selected || !state.data) return;
+        const delta = event.shiftKey ? 10 : 1;
+        const keyToOffset = {
+          ArrowLeft: { x: -delta, y: 0 },
+          ArrowRight: { x: delta, y: 0 },
+          ArrowUp: { x: 0, y: -delta },
+          ArrowDown: { x: 0, y: delta },
+        };
+        const offset = keyToOffset[event.key];
+        if (!offset) return;
+
+        event.preventDefault();
+        const preset = getPreset(state.selected.presetName);
+        const point = preset.labels[state.selected.label];
+        setLabelPoint(state.selected.presetName, state.selected.label, {
+          x: point.x + offset.x,
+          y: point.y + offset.y,
+        });
+      }
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("keydown", handleKeydown);
+      window.addEventListener("resize", syncStageScales);
+
+      document.getElementById("reload-btn").addEventListener("click", async () => {
+        try {
+          await loadData();
+        } catch (error) {
+          setStatus(formatUiError(error, "重新载入"), true);
+        }
+      });
+
+      document.getElementById("save-btn").addEventListener("click", async () => {
+        try {
+          setStatus("正在保存标签布局…");
+          await saveData();
+        } catch (error) {
+          setStatus(formatUiError(error, "保存"), true);
+        }
+      });
+
+      document.getElementById("copy-btn").addEventListener("click", async () => {
+        try {
+          await copyJson();
+        } catch (error) {
+          setStatus(formatUiError(error, "复制"), true);
+        }
+      });
+
+      loadData().catch((error) => {
+        setStatus(formatUiError(error, "初始化"), true);
+      });
+    </script>
+  </body>
+</html>

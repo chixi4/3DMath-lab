@@ -24,3 +24,6 @@ media/**/*temp*
 media/**/*patched*
 media/**/*v2*
 media/**/*v3*
+
+assets/reference-labels/
+assets/reference-textures/

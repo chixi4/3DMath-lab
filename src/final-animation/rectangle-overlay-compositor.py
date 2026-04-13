@@ -23,6 +23,11 @@ OUTPUT_DIR = Path(
 ).expanduser()
 THEME = os.environ.get("LINKED_RECTANGLES_THEME", os.environ.get("MANIM_THEME", "light")).strip().lower()
 PLANE_TRACKING_ENABLED = os.environ.get("LINKED_RECTANGLES_USE_PLANE_TRACKING", "1").strip().lower() not in {"0", "false", "no"}
+CAMERA_MODE = os.environ.get(
+    "LINKED_RECTANGLES_CAMERA_MODE",
+    os.environ.get("VOLUME_OF_REVOLUTION_CAMERA_MODE", "motion"),
+).strip().lower()
+BUILD_EMPHASIS = float(os.environ.get("LINKED_RECTANGLES_BUILD_EMPHASIS", "1.25"))
 DEFAULT_LOWRES_SOURCE = OUTPUT_DIR / "volume-of-revolution-source-preview.mp4"
 DEFAULT_MEDIUM_SOURCE = OUTPUT_DIR / "volume-of-revolution-source-1080p60.mp4"
 DEFAULT_SOURCE_VIDEO = DEFAULT_MEDIUM_SOURCE if DEFAULT_MEDIUM_SOURCE.exists() else DEFAULT_LOWRES_SOURCE
@@ -436,6 +441,11 @@ def static_projector():
 
 
 STATIC_PROJECT = static_projector()
+FIXED_SHOWCASE_PLANE_HOMOGRAPHY: np.ndarray | None = None
+
+
+def use_fixed_showcase_camera() -> bool:
+    return CAMERA_MODE in {"fixed", "static", "locked", "still"}
 
 
 def slice_angle_progress(showcase_t: float, slice_index: int) -> float:
@@ -781,6 +791,15 @@ def static_plane_projector(src_frames: list[Path]):
 
 
 def showcase_plane_projector(source_frame: Image.Image, showcase_motion_t: float, *, cache_key: int | None = None):
+    global FIXED_SHOWCASE_PLANE_HOMOGRAPHY
+    if use_fixed_showcase_camera():
+        project = STATIC_PROJECT
+        if not PLANE_TRACKING_ENABLED:
+            return project
+        if FIXED_SHOWCASE_PLANE_HOMOGRAPHY is None:
+            FIXED_SHOWCASE_PLANE_HOMOGRAPHY = estimated_plane_homography(source_frame, project)
+        return make_corrected_projector(project, FIXED_SHOWCASE_PLANE_HOMOGRAPHY)
+
     project = projector_for_state(*showcase_motion_camera_state(showcase_motion_t))
     if not PLANE_TRACKING_ENABLED:
         return project
@@ -903,6 +922,13 @@ def scale_rgba_alpha(rgba: tuple[int, int, int, int], alpha_scale: float) -> tup
     return rgba[0], rgba[1], rgba[2], alpha
 
 
+def emphasize_rgba(rgba: tuple[int, int, int, int], emphasis: float) -> tuple[int, int, int, int]:
+    emphasis = max(float(emphasis), 0.0)
+    if emphasis <= 1.0:
+        return rgba
+    return rgba[0], rgba[1], rgba[2], int(round(min(255.0, rgba[3] * emphasis)))
+
+
 def curve_strip_polygon_points(
     project,
     bound: tuple[float, float],
@@ -973,8 +999,8 @@ def draw_rectangles_for_intro(frame: Image.Image, intro_t: float, project) -> Im
         draw,
         project,
         FIRST_BOUND,
-        fill_rgba=RECT_FILL_ACTIVE,
-        stroke_rgba=RECT_STROKE_ACTIVE,
+        fill_rgba=emphasize_rgba(RECT_FILL_ACTIVE, BUILD_EMPHASIS),
+        stroke_rgba=emphasize_rgba(RECT_STROKE_ACTIVE, BUILD_EMPHASIS),
         alpha_scale=progress,
         edge_width=RECT_EDGE_WIDTH_ACTIVE,
     )
@@ -1038,8 +1064,8 @@ def draw_remaining_rectangles_freeze(frame: Image.Image, freeze_t: float, projec
                 draw,
                 project,
                 bound,
-                fill_rgba=RECT_FILL_ACTIVE,
-                stroke_rgba=RECT_STROKE_ACTIVE,
+                fill_rgba=emphasize_rgba(RECT_FILL_ACTIVE, BUILD_EMPHASIS),
+                stroke_rgba=emphasize_rgba(RECT_STROKE_ACTIVE, BUILD_EMPHASIS),
                 alpha_scale=eased_unit(local),
                 edge_width=RECT_EDGE_WIDTH_ACTIVE,
             )

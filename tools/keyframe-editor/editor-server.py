@@ -22,6 +22,10 @@ OUTPUT_ROOT = REPO_ROOT / "output"
 SCENE_FILE = REPO_ROOT / "src" / "prototype-manimce" / "revolve-slice-prototype.py"
 EDITOR_FILE = ROOT / "label-editor.html"
 CAMERA_EDITOR_FILE = ROOT / "camera-editor.html"
+REFERENCE_SCENE_FILE = REPO_ROOT / "src" / "reference-animation" / "sqrtx_full_rotation.py"
+REFERENCE_CAMERA_EDITOR_FILE = ROOT / "reference-camera-editor.html"
+REFERENCE_LABEL_EDITOR_FILE = ROOT / "reference-label-editor.html"
+REFERENCE_LABEL_LAYOUT_FILE = REPO_ROOT / "config" / "reference-label-layouts.json"
 SHOWCASE_PREVIEW_RENDER_SCRIPT = REPO_ROOT / "scripts" / "render" / "render-showcase-previews.sh"
 FRAME_HEIGHT = 8.0
 FRAME_WIDTH = FRAME_HEIGHT * (16.0 / 9.0)
@@ -43,6 +47,49 @@ SHOWCASE_FOCUS_CONSTANT = "SHOWCASE_FOCUS_LOCAL_KNOTS"
 SHOWCASE_OFFSET_CONSTANT = "SHOWCASE_CENTER_OFFSET_KNOTS"
 SHOWCASE_PREVIEW_DIR = OUTPUT_ROOT / "showcase-previews-16x9"
 SHOWCASE_PREVIEW_RAW_DIR = OUTPUT_ROOT / "showcase-previews-raw"
+REFERENCE_CAMERA_CONSTANT = "FIXED_CAMERA"
+REFERENCE_CENTER_CONSTANT = "FIXED_FRAME_CENTER"
+REFERENCE_PROGRESS_CONSTANT = "REFERENCE_PREVIEW_PROGRESS"
+REFERENCE_WORLD_ORIGIN_CONSTANT = "REFERENCE_WORLD_ORIGIN_SHIFT"
+REFERENCE_WORLD_SCALE_CONSTANT = "REFERENCE_WORLD_SCALE"
+REFERENCE_THETA_OFFSET_CONSTANT = "REFERENCE_THETA_OFFSET"
+REFERENCE_FOCAL_DISTANCE_CONSTANT = "REFERENCE_FOCAL_DISTANCE"
+REFERENCE_PREVIEW_DIR = OUTPUT_ROOT / "reference-editor"
+REFERENCE_PREVIEW_NAME = "sqrtx-reference-preview"
+REFERENCE_LABEL_PREVIEW_IMAGES = {
+    "phi30": (
+        OUTPUT_ROOT / "reference" / "checks" / "reference-label-editor-phi30-4k.png",
+        OUTPUT_ROOT / "reference" / "checks" / "debug_4k_phi30_nolabel_v3.png",
+    ),
+    "phi70": (
+        OUTPUT_ROOT / "reference" / "checks" / "reference-label-editor-phi70-4k.png",
+        OUTPUT_ROOT / "reference" / "checks" / "debug_4k_phi70_nolabel_v3.png",
+    ),
+}
+REFERENCE_LABEL_DEFAULTS = {
+    "phi30": {
+        "title": "phi = 30°",
+        "baseWidth": 3840,
+        "baseHeight": 2160,
+        "labelHeightPx": 118.0,
+        "labels": {
+            "x": {"x": 2712.10, "y": 1834.86},
+            "y": {"x": 1936.00, "y": 800.88},
+            "z": {"x": 1540.64, "y": 1476.40},
+        },
+    },
+    "phi70": {
+        "title": "phi = 70°",
+        "baseWidth": 3840,
+        "baseHeight": 2160,
+        "labelHeightPx": 118.0,
+        "labels": {
+            "x": {"x": 2740.00, "y": 1494.10},
+            "y": {"x": 1940.00, "y": 577.01},
+            "z": {"x": 1530.74, "y": 1342.99},
+        },
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,6 +104,7 @@ def parse_args() -> argparse.Namespace:
 
     subparsers.add_parser("dump-json", help="Print the current editor payload as JSON.")
     subparsers.add_parser("dump-camera-json", help="Print the current showcase camera payload as JSON.")
+    subparsers.add_parser("dump-reference-camera-json", help="Print the current sqrt(x) reference camera payload as JSON.")
 
     apply_parser = subparsers.add_parser("apply", help="Apply a JSON payload to revolve-slice-prototype.py.")
     apply_parser.add_argument("json_path", type=Path)
@@ -214,11 +262,158 @@ def load_camera_payload() -> dict[str, object]:
     }
 
 
-def format_float(value: float) -> str:
-    rounded = round(float(value), 2)
-    if abs(rounded) < 0.005:
+def load_reference_camera_payload() -> dict[str, object]:
+    source = REFERENCE_SCENE_FILE.read_text()
+    assignments = find_assignments(source)
+
+    camera = extract_vector(assignments[REFERENCE_CAMERA_CONSTANT].value, length=4)
+    center = extract_vector(assignments[REFERENCE_CENTER_CONSTANT].value, length=3)
+    preview_progress = extract_number(assignments[REFERENCE_PROGRESS_CONSTANT].value)
+    world_origin = extract_vector(assignments[REFERENCE_WORLD_ORIGIN_CONSTANT].value, length=3)
+    world_scale = extract_vector(assignments[REFERENCE_WORLD_SCALE_CONSTANT].value, length=3)
+    theta_offset = extract_number(assignments[REFERENCE_THETA_OFFSET_CONSTANT].value)
+    focal_distance = extract_number(assignments[REFERENCE_FOCAL_DISTANCE_CONSTANT].value)
+
+    preview_path = REFERENCE_PREVIEW_DIR / f"{REFERENCE_PREVIEW_NAME}.png"
+    preview_ready = preview_path.exists()
+    preview_version = preview_path.stat().st_mtime_ns if preview_ready else 0
+
+    return {
+        "scenePath": str(REFERENCE_SCENE_FILE),
+        "camera": camera,
+        "center": center,
+        "previewProgress": preview_progress,
+        "worldOrigin": world_origin,
+        "worldScale": world_scale,
+        "thetaOffset": theta_offset,
+        "focalDistance": focal_distance,
+        "previewReady": preview_ready,
+        "previewVersion": preview_version,
+        "previewImage": f"/{preview_path.relative_to(REPO_ROOT).as_posix()}" if preview_ready else None,
+    }
+
+
+def resolve_reference_label_preview_path(preset_name: str) -> Path | None:
+    candidates = REFERENCE_LABEL_PREVIEW_IMAGES.get(preset_name, ())
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0] if candidates else None
+
+
+def validate_reference_label_layout_payload(payload: dict[str, object]) -> dict[str, object]:
+    raw_presets = payload.get("presets")
+    if not isinstance(raw_presets, dict):
+        raise ValueError("Payload is missing presets.")
+
+    normalized_presets: dict[str, object] = {}
+    for preset_name in REFERENCE_LABEL_DEFAULTS:
+        raw_preset = raw_presets.get(preset_name)
+        if not isinstance(raw_preset, dict):
+            raise ValueError(f"Preset {preset_name!r} is missing.")
+
+        try:
+            base_width = int(raw_preset.get("baseWidth"))
+            base_height = int(raw_preset.get("baseHeight"))
+            label_height = float(raw_preset.get("labelHeightPx"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Preset {preset_name!r} contains invalid numeric values.") from exc
+
+        if base_width <= 0 or base_height <= 0:
+            raise ValueError(f"Preset {preset_name!r} must use positive base dimensions.")
+        if not math.isfinite(label_height) or label_height <= 0.0:
+            raise ValueError(f"Preset {preset_name!r} must use a positive labelHeightPx.")
+
+        raw_labels = raw_preset.get("labels")
+        if not isinstance(raw_labels, dict):
+            raise ValueError(f"Preset {preset_name!r} is missing labels.")
+
+        normalized_labels: dict[str, dict[str, float]] = {}
+        for axis_name in ("x", "y", "z"):
+            raw_label = raw_labels.get(axis_name)
+            if not isinstance(raw_label, dict):
+                raise ValueError(f"Preset {preset_name!r} is missing label {axis_name!r}.")
+            try:
+                x_coord = float(raw_label.get("x"))
+                y_coord = float(raw_label.get("y"))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Preset {preset_name!r} label {axis_name!r} must be numeric.") from exc
+            if not (math.isfinite(x_coord) and math.isfinite(y_coord)):
+                raise ValueError(f"Preset {preset_name!r} label {axis_name!r} must be finite.")
+            normalized_labels[axis_name] = {"x": x_coord, "y": y_coord}
+
+        normalized_presets[preset_name] = {
+            "baseWidth": base_width,
+            "baseHeight": base_height,
+            "labelHeightPx": label_height,
+            "labels": normalized_labels,
+        }
+
+    return {"presets": normalized_presets}
+
+
+def load_reference_label_layout_payload() -> dict[str, object]:
+    saved_payload: dict[str, object] | None = None
+    if REFERENCE_LABEL_LAYOUT_FILE.exists():
+        raw_payload = json.loads(REFERENCE_LABEL_LAYOUT_FILE.read_text(encoding="utf-8"))
+        saved_payload = validate_reference_label_layout_payload(raw_payload)
+
+    presets: dict[str, object] = {}
+    for preset_name, defaults in REFERENCE_LABEL_DEFAULTS.items():
+        preview_path = resolve_reference_label_preview_path(preset_name)
+        preview_image = None
+        preview_width = int(defaults["baseWidth"])
+        preview_height = int(defaults["baseHeight"])
+        if preview_path is not None and preview_path.exists():
+            preview_width, preview_height = read_png_size(preview_path)
+            preview_image = f"/{preview_path.relative_to(REPO_ROOT).as_posix()}"
+
+        saved_preset = None
+        if saved_payload is not None:
+            saved_preset = saved_payload["presets"][preset_name]
+
+        base_width = int(saved_preset["baseWidth"]) if saved_preset is not None else preview_width
+        base_height = int(saved_preset["baseHeight"]) if saved_preset is not None else preview_height
+        label_height = float(saved_preset["labelHeightPx"]) if saved_preset is not None else float(defaults["labelHeightPx"])
+        labels_source = saved_preset["labels"] if saved_preset is not None else defaults["labels"]
+
+        presets[preset_name] = {
+            "name": preset_name,
+            "title": defaults["title"],
+            "previewImage": preview_image,
+            "baseWidth": base_width,
+            "baseHeight": base_height,
+            "labelHeightPx": label_height,
+            "labels": {
+                axis_name: {
+                    "x": float(labels_source[axis_name]["x"]),
+                    "y": float(labels_source[axis_name]["y"]),
+                }
+                for axis_name in ("x", "y", "z")
+            },
+        }
+
+    return {
+        "configPath": str(REFERENCE_LABEL_LAYOUT_FILE),
+        "presets": presets,
+    }
+
+
+def save_reference_label_layout_payload(payload: dict[str, object]) -> dict[str, object]:
+    normalized = validate_reference_label_layout_payload(payload)
+    REFERENCE_LABEL_LAYOUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    REFERENCE_LABEL_LAYOUT_FILE.write_text(
+        json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return load_reference_label_layout_payload()
+
+
+def format_float(value: float, digits: int = 2) -> str:
+    rounded = round(float(value), digits)
+    if abs(rounded) < (0.5 * (10 ** (-digits))):
         rounded = 0.0
-    return f"{rounded:.2f}"
+    return f"{rounded:.{digits}f}"
 
 
 def render_knots_block(name: str, points: list[list[float]]) -> str:
@@ -244,6 +439,15 @@ def render_float_tuple_block(name: str, values: list[float]) -> str:
         lines.append(f"    {format_float(value)},")
     lines.append(")")
     return "\n".join(lines) + "\n"
+
+
+def render_vector_assignment(name: str, values: list[float], *, digits: int = 2) -> str:
+    rendered = ", ".join(format_float(value, digits=digits) for value in values)
+    return f"{name} = np.array([{rendered}], dtype=float)\n"
+
+
+def render_float_assignment(name: str, value: float, *, digits: int = 2) -> str:
+    return f"{name} = {format_float(value, digits=digits)}\n"
 
 
 def replace_assignment(source: str, name: str, replacement: str) -> str:
@@ -332,6 +536,63 @@ def validate_camera_payload(payload: dict[str, object]) -> dict[str, object]:
     }
 
 
+def validate_reference_camera_payload(payload: dict[str, object]) -> dict[str, object]:
+    camera = payload.get("camera")
+    center = payload.get("center")
+    preview_progress = payload.get("previewProgress")
+    world_origin = payload.get("worldOrigin")
+    world_scale = payload.get("worldScale")
+    theta_offset = payload.get("thetaOffset")
+    focal_distance = payload.get("focalDistance")
+
+    if not isinstance(camera, list) or len(camera) != 4:
+        raise ValueError("camera must contain exactly 4 values.")
+    if not isinstance(center, list) or len(center) != 3:
+        raise ValueError("center must contain exactly 3 values.")
+    if not isinstance(world_origin, list) or len(world_origin) != 3:
+        raise ValueError("worldOrigin must contain exactly 3 values.")
+    if not isinstance(world_scale, list) or len(world_scale) != 3:
+        raise ValueError("worldScale must contain exactly 3 values.")
+
+    normalized_camera = [float(value) for value in camera]
+    normalized_center = [float(value) for value in center]
+    normalized_world_origin = [float(value) for value in world_origin]
+    normalized_world_scale = [float(value) for value in world_scale]
+    if not all(math.isfinite(value) for value in normalized_camera):
+        raise ValueError("camera must contain only finite values.")
+    if not all(math.isfinite(value) for value in normalized_center):
+        raise ValueError("center must contain only finite values.")
+    if not all(math.isfinite(value) for value in normalized_world_origin):
+        raise ValueError("worldOrigin must contain only finite values.")
+    if not all(math.isfinite(value) for value in normalized_world_scale):
+        raise ValueError("worldScale must contain only finite values.")
+    if any(abs(value) < 1e-6 for value in normalized_world_scale):
+        raise ValueError("worldScale values must stay away from zero.")
+
+    preview_value = float(preview_progress)
+    if not math.isfinite(preview_value):
+        raise ValueError("previewProgress must be finite.")
+    if not (0.0 <= preview_value <= 1.0):
+        raise ValueError("previewProgress must stay within [0, 1].")
+
+    theta_value = float(theta_offset)
+    focal_value = float(focal_distance)
+    if not math.isfinite(theta_value):
+        raise ValueError("thetaOffset must be finite.")
+    if not math.isfinite(focal_value) or focal_value <= 0.0:
+        raise ValueError("focalDistance must be a positive finite number.")
+
+    return {
+        "camera": normalized_camera,
+        "center": normalized_center,
+        "previewProgress": preview_value,
+        "worldOrigin": normalized_world_origin,
+        "worldScale": normalized_world_scale,
+        "thetaOffset": theta_value,
+        "focalDistance": focal_value,
+    }
+
+
 def apply_payload(payload: dict[str, object]) -> dict[str, object]:
     labels = validate_payload(payload)
     source = SCENE_FILE.read_text()
@@ -350,6 +611,48 @@ def apply_camera_payload(payload: dict[str, object]) -> dict[str, object]:
     source = replace_assignment(source, SHOWCASE_OFFSET_CONSTANT, render_vector_knots_block(SHOWCASE_OFFSET_CONSTANT, normalized["centerOffset"]))
     SCENE_FILE.write_text(source)
     return load_camera_payload()
+
+
+def apply_reference_camera_payload(payload: dict[str, object]) -> dict[str, object]:
+    normalized = validate_reference_camera_payload(payload)
+    source = REFERENCE_SCENE_FILE.read_text()
+    source = replace_assignment(
+        source,
+        REFERENCE_CAMERA_CONSTANT,
+        render_vector_assignment(REFERENCE_CAMERA_CONSTANT, normalized["camera"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_CENTER_CONSTANT,
+        render_vector_assignment(REFERENCE_CENTER_CONSTANT, normalized["center"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_PROGRESS_CONSTANT,
+        render_float_assignment(REFERENCE_PROGRESS_CONSTANT, normalized["previewProgress"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_WORLD_ORIGIN_CONSTANT,
+        render_vector_assignment(REFERENCE_WORLD_ORIGIN_CONSTANT, normalized["worldOrigin"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_WORLD_SCALE_CONSTANT,
+        render_vector_assignment(REFERENCE_WORLD_SCALE_CONSTANT, normalized["worldScale"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_THETA_OFFSET_CONSTANT,
+        render_float_assignment(REFERENCE_THETA_OFFSET_CONSTANT, normalized["thetaOffset"], digits=2),
+    )
+    source = replace_assignment(
+        source,
+        REFERENCE_FOCAL_DISTANCE_CONSTANT,
+        render_float_assignment(REFERENCE_FOCAL_DISTANCE_CONSTANT, normalized["focalDistance"], digits=2),
+    )
+    REFERENCE_SCENE_FILE.write_text(source)
+    return load_reference_camera_payload()
 
 
 def render_showcase_previews() -> dict[str, object]:
@@ -423,6 +726,55 @@ def render_showcase_preview_frame(index: int) -> dict[str, object]:
     return load_camera_payload()
 
 
+def render_reference_preview() -> dict[str, object]:
+    payload = load_reference_camera_payload()
+    preview_t = float(payload["previewProgress"])
+    REFERENCE_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+
+    manim_bin = REPO_ROOT / ".venv-manimgl" / "bin" / "manimgl"
+    if not manim_bin.exists():
+        raise FileNotFoundError(f"Missing ManimGL executable: {manim_bin}")
+
+    env = os.environ.copy()
+    env["SQRTX_REFERENCE_PROGRESS"] = f"{preview_t:.12f}"
+
+    completed = subprocess.run(
+        [
+            str(manim_bin),
+            str(REFERENCE_SCENE_FILE),
+            "SqrtXReferenceFrame",
+            "-w",
+            "-s",
+            "--hd",
+            "--file_name",
+            REFERENCE_PREVIEW_NAME,
+            "--video_dir",
+            str(REFERENCE_PREVIEW_DIR),
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip() or "Reference preview render failed."
+        raise RuntimeError(message)
+
+    image_candidates = sorted(
+        REFERENCE_PREVIEW_DIR.glob(f"{REFERENCE_PREVIEW_NAME}*.png"),
+        key=lambda path: path.stat().st_mtime_ns,
+    )
+    if not image_candidates:
+        raise FileNotFoundError("Could not find rendered sqrt(x) reference preview PNG.")
+
+    preview_path = image_candidates[-1]
+    canonical_path = REFERENCE_PREVIEW_DIR / f"{REFERENCE_PREVIEW_NAME}.png"
+    if preview_path != canonical_path:
+        shutil.copy2(preview_path, canonical_path)
+    return load_reference_camera_payload()
+
+
 class EditorHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         try:
@@ -434,11 +786,23 @@ class EditorHandler(BaseHTTPRequestHandler):
             if normalized_path in {"/camera", "/camera.html"}:
                 self.serve_file(CAMERA_EDITOR_FILE)
                 return
+            if normalized_path in {"/reference-camera", "/reference-camera.html"}:
+                self.serve_file(REFERENCE_CAMERA_EDITOR_FILE)
+                return
+            if normalized_path in {"/reference-labels", "/reference-labels.html", "/reference-label-editor.html"}:
+                self.serve_file(REFERENCE_LABEL_EDITOR_FILE)
+                return
             if normalized_path == "/api/keyframes":
                 self.respond_json(load_scene_payload())
                 return
             if normalized_path == "/api/camera-keyframes":
                 self.respond_json(load_camera_payload())
+                return
+            if normalized_path == "/api/reference-camera":
+                self.respond_json(load_reference_camera_payload())
+                return
+            if normalized_path == "/api/reference-label-layouts":
+                self.respond_json(load_reference_label_layout_payload())
                 return
             self.serve_static_path(parsed.path)
         except Exception as exc:  # noqa: BLE001
@@ -461,6 +825,11 @@ class EditorHandler(BaseHTTPRequestHandler):
                 updated_payload = apply_camera_payload(payload)
                 self.respond_json(updated_payload)
                 return
+            if normalized_path == "/api/reference-camera":
+                payload = json.loads(raw_body)
+                updated_payload = apply_reference_camera_payload(payload)
+                self.respond_json(updated_payload)
+                return
             if normalized_path == "/api/camera-previews/render":
                 updated_payload = render_showcase_previews()
                 self.respond_json(updated_payload)
@@ -475,6 +844,17 @@ class EditorHandler(BaseHTTPRequestHandler):
                     raise ValueError("payload.payload must be a JSON object.")
                 apply_camera_payload(camera_payload)
                 updated_payload = render_showcase_preview_frame(index)
+                self.respond_json(updated_payload)
+                return
+            if normalized_path == "/api/reference-camera-preview":
+                payload = json.loads(raw_body)
+                updated_payload = apply_reference_camera_payload(payload)
+                updated_payload = render_reference_preview()
+                self.respond_json(updated_payload)
+                return
+            if normalized_path == "/api/reference-label-layouts":
+                payload = json.loads(raw_body)
+                updated_payload = save_reference_label_layout_payload(payload)
                 self.respond_json(updated_payload)
                 return
 
@@ -535,6 +915,11 @@ def print_camera_json_payload() -> int:
     return 0
 
 
+def print_reference_camera_json_payload() -> int:
+    print(json.dumps(load_reference_camera_payload(), ensure_ascii=False, indent=2))
+    return 0
+
+
 def apply_from_file(json_path: Path) -> int:
     payload = json.loads(json_path.read_text())
     apply_payload(payload)
@@ -566,6 +951,8 @@ def main() -> int:
             return print_json_payload()
         if args.command == "dump-camera-json":
             return print_camera_json_payload()
+        if args.command == "dump-reference-camera-json":
+            return print_reference_camera_json_payload()
         if args.command == "apply":
             return apply_from_file(args.json_path)
         if args.command == "serve":
