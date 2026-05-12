@@ -3,6 +3,7 @@ media/
 .venv/
 .venv-manimgl/
 .remote_tmp/
+web3d/node_modules/
 __pycache__/
 .DS_Store
 

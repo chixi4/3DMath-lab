@@ -2,15 +2,16 @@
 
 ## Canonical final
 
-当前唯一正式版本是：
+圆盘切片与旋转体这条作品的正式版本是：
 
-- [`../assets/final/volume-of-revolution-final-1080p60.mp4`](../assets/final/volume-of-revolution-final-1080p60.mp4)
+- [`../assets/final/volume-of-revolution/volume-of-revolution-1080p60.mp4`](../assets/final/volume-of-revolution/volume-of-revolution-1080p60.mp4)
 
 它对应的是黑底、`1080p / 60fps`、freeze-end 收尾版本。
 
-如果你要找的是这次新增的 `sqrt(x)` 固定机位参考片链路，不在这条 canonical final 里，单独见：
+如果你要找的是其他作品，不在这条主片链路里，单独见：
 
-- [`reference-video-upgrade.md`](reference-video-upgrade.md)
+- [`works/sqrtx-y-rotation.md`](works/sqrtx-y-rotation.md)
+- [`works/steinmetz-intersection.md`](works/steinmetz-intersection.md)
 
 ## 三步生成链路
 
@@ -80,8 +81,8 @@
 
 ## 和参考视频链路的关系
 
-这条最终主片链路仍然是仓库里的 canonical final。
-但为了交付最新的 `sqrt(x)` 参考视频，本次又额外补出了一条 `reference-animation` 链路，并把 fixed-camera 所需的一部分基础设施回灌到了这里。
+这条最终主片链路仍然是圆盘切片与旋转体作品的 canonical final。
+后来为了交付 `sqrt(x)` 参考视频，又额外补出了一条 `reference-animation` 链路，并把 fixed-camera 所需的一部分基础设施回灌到了这里。
 
 具体新增内容见：
 

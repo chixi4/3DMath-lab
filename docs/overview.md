@@ -1,14 +1,16 @@
 # Overview
 
-## 这个仓库为什么同时有四块内容
+## 这个仓库为什么同时有五块内容
 
 `3DMath-lab` 不是单纯的成片仓，也不是只存实验脚本的草稿仓。
-它把同一条动画项目拆成四个公开层级：
+它把数学动画项目拆成五个公开层级：
 
 - `src/final-animation/`
-  真正负责最终版成片的代码。
+  圆盘切片与旋转体主片代码。
 - `src/reference-animation/`
-  固定机位参考片和参考帧的独立生产链。
+  `sqrt(x)` 绕 y 轴旋转参考片和参考帧的独立生产链。
+- `web3d/`
+  Steinmetz 两圆柱相交动画的 Three.js/Web3D 项目。
 - `src/prototype-manimce/`
   早期实验和结构验证代码。
 - `tools/keyframe-editor/`
@@ -21,15 +23,18 @@
 
 ## 如果你只想看结果
 
-优先看这三个位置：
+优先看这四个位置：
 
-- [`../assets/final/volume-of-revolution-final-1080p60.mp4`](../assets/final/volume-of-revolution-final-1080p60.mp4)
+- [`../assets/final/volume-of-revolution/`](../assets/final/volume-of-revolution/)
+- [`../assets/final/sqrtx-y-rotation/`](../assets/final/sqrtx-y-rotation/)
+- [`../assets/final/steinmetz-intersection/`](../assets/final/steinmetz-intersection/)
 - [`../README.md`](../README.md)
-- [`final-pipeline.md`](final-pipeline.md)
 
-如果你想看这次为了 `sqrt(x)` 固定机位参考视频到底新增了什么，再看：
+如果你想看每个作品的整理说明，再看：
 
-- [`reference-video-upgrade.md`](reference-video-upgrade.md)
+- [`works/volume-of-revolution.md`](works/volume-of-revolution.md)
+- [`works/sqrtx-y-rotation.md`](works/sqrtx-y-rotation.md)
+- [`works/steinmetz-intersection.md`](works/steinmetz-intersection.md)
 
 ## 代码分区说明
 
@@ -48,6 +53,13 @@
 
 - `sqrtx_full_rotation.py`
   `sqrt(x)` 固定机位参考视频与参考帧场景。
+
+### `web3d/`
+
+- `src/main.js`
+  Steinmetz 两圆柱相交动画主逻辑。
+- `scripts/capture.mjs`
+  用 Playwright 捕获关键帧，并通过 ffmpeg 合成 `1080p60` 视频。
 
 ### `src/prototype-manimce/`
 
@@ -96,6 +108,7 @@
 
 - `output/`
 - `media/`
+- `web3d/node_modules/`
 - `.venv/`
 - `.venv-manimgl/`
 - 中间帧、probe、contact sheet
