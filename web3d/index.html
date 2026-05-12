@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steinmetz Web 3D</title>
+  </head>
+  <body>
+    <main id="stage">
+      <canvas id="scene"></canvas>
+      <section id="formula-panel" aria-label="公式">
+        <div class="formula" data-key="vertical">
+          <span class="swatch blue"></span>
+          <span>x² + y² = R²</span>
+        </div>
+        <div class="formula" data-key="horizontal">
+          <span class="swatch pink"></span>
+          <span>x² + z² = R²</span>
+        </div>
+        <div class="formula" data-key="domain">
+          <span class="swatch yellow"></span>
+          <span>y = √(R² − x²)</span>
+        </div>
+      </section>
+      <div id="symmetry-formula" aria-label="总体积公式">V=8V₁</div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
